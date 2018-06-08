@@ -1,4 +1,4 @@
-package full.sync;
+package com.datayes.heterDataTransfer.sync;
 
 import java.io.*;
 import java.net.ServerSocket;
