@@ -3,6 +3,8 @@ package com.datayes.heterDataTransfer.sync;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.util.BitSet;
 import java.util.Vector;
 
 import static java.lang.System.out;
@@ -15,7 +17,6 @@ public class ClientServerSocket {
     private Socket socket;
     private DataInputStream inData;
     private DataOutputStream outData;
-    ServerSocket serverSock;
 
     public ClientServerSocket(String inIPAddr, int inPortNum) {
         socket = null;
@@ -25,9 +26,18 @@ public class ClientServerSocket {
         portNum = inPortNum;
     }
 
+    public ClientServerSocket(Socket _socket) {
+        socket = _socket;
+        try {
+            inData = new DataInputStream(socket.getInputStream());
+            outData = new DataOutputStream(socket.getOutputStream());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public void close(){
         try {
-            serverSock.close();
             socket.close();
         } catch (IOException e) {
             e.printStackTrace();
@@ -43,23 +53,6 @@ public class ClientServerSocket {
             out.println("Starting a client failed");
             ioe.printStackTrace();
             System.exit(10);
-        }
-    }
-
-    public void startServer() {
-        try {
-            serverSock = new ServerSocket(portNum);
-            out.println("Waiting for clients' request, at port=" + portNum);
-
-            socket = serverSock.accept();
-            inData = new DataInputStream(socket.getInputStream());
-            outData = new DataOutputStream(socket.getOutputStream());
-
-            out.println("Accept client request");
-        } catch (IOException ioe) {
-            out.println("Starting a client failed");
-            ioe.printStackTrace();
-            System.exit(7);
         }
     }
 
@@ -153,5 +146,51 @@ public class ClientServerSocket {
         }
     }
 
+    public void sendByteAry(byte[] byteAry) throws IOException {
+        outData.write(byteAry);
+    }
+
+    public byte[] recvByteAry(int numBytes) throws IOException {
+        byte[] byteAry = new byte[numBytes];
+        int bytesRead = 0, current = 0;
+        while (bytesRead > -1 & numBytes > current){
+            bytesRead = inData.read(byteAry, current, numBytes - current);
+            if (bytesRead >= 0) current += bytesRead;
+        }
+        return byteAry;
+    }
+
+    public void sendBitSet(BitSet bitSet) throws IOException {
+        sendInt(bitSet.size());
+        sendInt(bitSet.toByteArray().length);
+        outData.write(bitSet.toByteArray());
+    }
+
+    public BitSet recvBitSet() throws IOException {
+        int setSize = recvInt();
+        int numBytes = recvInt();
+        BitSet ret = BitSet.valueOf(recvByteAry(numBytes));
+        return ret;
+    }
+
+    public void sendLong(long l) throws IOException {
+        outData.writeLong(l);
+    }
+
+    public long recvLong() throws IOException {
+        byte[] byteAry = recvByteAry(8);
+        ByteBuffer wrapped = ByteBuffer.wrap(byteAry);
+        return wrapped.getLong();
+    }
+
+    public void sendInt(int i) throws IOException {
+        outData.writeInt(i);
+    }
+
+    public int recvInt() throws IOException {
+        byte[] byteAry = recvByteAry(4);
+        ByteBuffer wrapped = ByteBuffer.wrap(byteAry);
+        return wrapped.getInt();
+    }
 }
 
