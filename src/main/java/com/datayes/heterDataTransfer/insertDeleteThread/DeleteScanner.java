@@ -9,7 +9,7 @@ public class DeleteScanner extends Thread{
 
     Connection con;
     String currentTable;
-    final int fetchSize = 2000;
+    final int fetchSize = 1;
 
     public DeleteScanner(String tableName) throws ClassNotFoundException, SQLException {
         con = DriverManager.getConnection(Config.sqlConnectionUrl);
@@ -67,9 +67,14 @@ public class DeleteScanner extends Thread{
                         }
                     }
                     if (curIdSet.size() == 0 || preIdSet.size() == 0){
-                        while (prePtr < preIdSet.size()){
-                            System.out.println("new delete id: " + preIdSet.get(prePtr));
-                            prePtr += 1;
+                        while (preIdSet.size() > 0){
+                            while(prePtr < preIdSet.size()){
+                                System.out.println("new delete id: " + preIdSet.get(prePtr));
+                                prePtr += 1;
+                            }
+                            preIdSet = readIdListByPartition(readFile, start, fetchSize);
+                            start += fetchSize;
+                            prePtr = 0;
                         }
                         while(curIdSet.size() > 0){
                             curIdSet = readDataBaseByPartition(rst, fetchSize);
