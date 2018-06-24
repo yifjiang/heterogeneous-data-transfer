@@ -6,6 +6,7 @@ public class ClientConfig {
             "user=root&password=root";
     String sqlClass = "com.mysql.cj.jdbc.Driver";
     String hostAddress = "localhost";
+    String[] tableToSynchronize = {"test1", "test2"};
     int hostPort = 8001;
     String getSqlConnectionUrl(){
         return sqlConnectionUrl;
@@ -16,6 +17,7 @@ public class ClientConfig {
     String getHostAddress(){
         return hostAddress;
     }
+    String[] getTableToSynchronize(){ return tableToSynchronize; }
     int getHostPort(){
         return hostPort;
     }

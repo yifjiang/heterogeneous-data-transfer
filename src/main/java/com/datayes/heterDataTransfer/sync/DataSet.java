@@ -105,7 +105,7 @@ public class DataSet {
             columnTypes.add(socket.recvInt());
         }
         numRow = socket.recvInt();
-        if (numRow > 0) {//TODO
+        if (numRow > 0) {
             for (int i = 0; i < numCol; ++i) {
                 byteNums.add(socket.recvInt());
             }

@@ -18,10 +18,8 @@ public class FullSyncClient {
 
     void synchronize(String tablename) throws IOException, SQLException {
         socket.sendString(tablename);
-        long minTmstamp = connector.getMinTimestamp(tablename);
-        long maxTmstamp = connector.getMaxTimestamp(tablename);
-        socket.sendLong(minTmstamp);
-        socket.sendLong(maxTmstamp);
+        long minTmstamp = socket.recvLong();
+        long maxTmstamp = socket.recvLong();
         long partitionSize = clientConfig.getPartitionSize();
         long partitionNum = (maxTmstamp-minTmstamp+1+partitionSize-1)/partitionSize;//ceil
         socket.sendLong(partitionNum);
@@ -40,12 +38,7 @@ public class FullSyncClient {
             System.out.println(begin);
             connector.updateTable(tablename, dataSet, begin);
         }
-        DataSet tmpDataSet = new DataSet();
-        tmpDataSet.constructFrom(socket);
-        connector.updateTable(tablename, tmpDataSet, 0);
-        tmpDataSet = new DataSet();
-        tmpDataSet.constructFrom(socket);
-        connector.updateTable(tablename, tmpDataSet, maxTmstamp+1);
+        connector.clearHeadTail(tablename, minTmstamp, maxTmstamp);
     }
 
     public void run(){
@@ -53,8 +46,12 @@ public class FullSyncClient {
         try {
 //            clientServerSocket.sendString("hello I'm client");
             connector = new MySQLConnector();
-            socket.sendInt(1);
-            synchronize("test1");
+            String[] tables = clientConfig.getTableToSynchronize();
+            socket.sendInt(tables.length);
+            for (String tableName: tables
+                 ) {
+                synchronize(tableName);
+            }
             socket.sendString("FIN ACK");
         } catch (Exception e) {
             e.printStackTrace();

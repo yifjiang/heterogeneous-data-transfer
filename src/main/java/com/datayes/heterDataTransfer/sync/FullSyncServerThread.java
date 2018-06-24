@@ -23,8 +23,10 @@ public class FullSyncServerThread extends Thread {
             System.out.println("numTable:"+numTable);
             for (int i = 0; i < numTable; i++) {
                 String tableName = socket.recvString();
-                long minTmstamp = socket.recvLong();
-                long maxTmstamp = socket.recvLong();
+                long minTmstamp = sqlServerComparater.getMinTimestamp(tableName);
+                long maxTmstamp = sqlServerComparater.getMaxTimestamp(tableName);
+                socket.sendLong(minTmstamp);
+                socket.sendLong(maxTmstamp);
                 long partitionNum = socket.recvLong();
                 for (int p = 0; p < partitionNum; ++p){
                     long begin = socket.recvLong();
@@ -40,8 +42,6 @@ public class FullSyncServerThread extends Thread {
 //                System.out.println(dataSet.residue);
                     dataSet.send(socket);
                 }
-                sqlServerComparater.calculateDifference(tableName, 0, minTmstamp, new BitSet()).send(socket);
-                sqlServerComparater.calculateDifference(tableName, maxTmstamp+1, maxTmstamp+1+Short.MAX_VALUE, new BitSet()).send(socket);//TODO
                 System.out.println("Table "+tableName+" synchronized");
             }
             System.out.println(socket.recvString());

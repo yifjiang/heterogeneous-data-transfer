@@ -18,6 +18,31 @@ public class SQLServerComparater {
         return con;
     }
 
+    long getAggregatedTimestamp(
+            String tableName,
+            String aggregation)
+            throws SQLException
+    {
+        String query = "SELECT "+aggregation+"(TMSTAMP) FROM "+tableName;
+        Statement stmt = con.createStatement();
+        ResultSet rst = stmt.executeQuery(query);
+        if (rst.next()){
+            long ret = ByteBuffer.wrap(rst.getBytes(1)).getLong();
+            if (rst.wasNull()) return -1;
+            return ret;
+        }else{
+            return -1;
+        }
+    }
+
+    long getMinTimestamp(String tableName) throws SQLException {
+        return getAggregatedTimestamp(tableName, "MIN");
+    }
+
+    long getMaxTimestamp(String tableName) throws SQLException {
+        return getAggregatedTimestamp(tableName, "MAX");
+    }
+
     DataSet calculateDifference(
             String tableName,
             long begin,
