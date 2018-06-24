@@ -1,12 +1,12 @@
 package com.datayes.heterDataTransfer.insertDeleteThread;
-import com.datayes.heterDataTransfer.insertDeleteThread.Config;
 
 
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by lyhdk7 on 2018/6/18.
@@ -59,8 +59,23 @@ public class MainScanner extends Thread{
                     if (curId > largestID) largestID = curId;
                     if (curTMP > largestTMP) largestTMP = curTMP;
                     if (curId > newestId) {
+
+
+                        Map<String, String> tempMap = new HashMap<>();
+                        tempMap.put("OPERATION", "INSERT");
+                        tempMap.put("ID", Long.toString(curId));
+                        tempMap.put("TMSTAMP", Long.toString(curTMP));
+                        KafkaSender sd = new KafkaSender();
+                        sd.send(tempMap.toString());
+
                         System.out.println("new insert id: " + curId);
                     } else {
+                        Map<String, String> tempMap = new HashMap<>();
+                        tempMap.put("OPERATION", "UPDATE");
+                        tempMap.put("ID", Long.toString(curId));
+                        tempMap.put("TMSTAMP", Long.toString(curTMP));
+                        KafkaSender sd = new KafkaSender();
+                        sd.send(tempMap.toString());
                         System.out.println("new update id: " + curId + " time: " + curTMP);
                     }
                 }
@@ -105,6 +120,9 @@ public class MainScanner extends Thread{
         }
         return result;
     }
+
+
+
 
 
 }
