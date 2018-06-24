@@ -1,6 +1,5 @@
 package com.datayes.heterDataTransfer.sync;
 
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.BitSet;

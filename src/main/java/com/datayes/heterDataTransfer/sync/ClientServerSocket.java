@@ -1,7 +1,6 @@
 package com.datayes.heterDataTransfer.sync;
 
 import java.io.*;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
