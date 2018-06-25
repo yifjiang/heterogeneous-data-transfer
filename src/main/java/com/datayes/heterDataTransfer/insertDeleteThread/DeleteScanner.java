@@ -4,12 +4,14 @@ import java.io.*;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class DeleteScanner extends Thread{
 
     Connection con;
     String currentTable;
-    final int fetchSize = 1;
+    final int fetchSize = 2000;
 
     public DeleteScanner(String tableName) throws ClassNotFoundException, SQLException {
         con = DriverManager.getConnection(Config.sqlConnectionUrl);
@@ -57,6 +59,13 @@ public class DeleteScanner extends Thread{
                         long curId = curIdSet.get(curPtr);
                         long preId = preIdSet.get(prePtr);
                         if (curId > preId){
+
+                            Map<String, String> tempMap = new HashMap<>();
+                            tempMap.put("OPERATION", "DELETE");
+                            tempMap.put("ID", Long.toString(preId));
+                            KafkaSender sd = new KafkaSender();
+                            sd.send(tempMap.toString());
+
                             System.out.println("new delete id: " + preId);
                             prePtr += 1;
                         } else if (curId == preId){
@@ -69,6 +78,13 @@ public class DeleteScanner extends Thread{
                     if (curIdSet.size() == 0 || preIdSet.size() == 0){
                         while (preIdSet.size() > 0){
                             while(prePtr < preIdSet.size()){
+
+                                Map<String, String> tempMap = new HashMap<>();
+                                tempMap.put("OPERATION", "DELETE");
+                                tempMap.put("ID", Long.toString(preIdSet.get(prePtr)));
+                                KafkaSender sd = new KafkaSender();
+                                sd.send(tempMap.toString());
+
                                 System.out.println("new delete id: " + preIdSet.get(prePtr));
                                 prePtr += 1;
                             }
