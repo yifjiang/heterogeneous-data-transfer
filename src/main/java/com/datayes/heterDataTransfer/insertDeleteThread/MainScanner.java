@@ -2,6 +2,7 @@ package com.datayes.heterDataTransfer.insertDeleteThread;
 
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,37 +48,50 @@ public class MainScanner extends Thread{
                         currentTable,
                         newestTMP));
 
+                ResultSetMetaData metaData = rst.getMetaData();
+                int numCol = metaData.getColumnCount();
+                ArrayList<String> columnNames = new ArrayList<>(numCol);
+                ArrayList<Integer> columnTypes = new ArrayList<>(numCol);
+
+                for (int j = 1; j <= numCol; ++j){
+                    columnNames.add(metaData.getColumnName(j));
+                    columnTypes.add(metaData.getColumnType(j));
+                }
+
+
+
                 long largestID = newestId;
                 long largestTMP = newestTMP;
 
                 while (rst.next()){
-                    //long timeStamp = rst.getLong("TMSTAMP");
-                    //assert timeStamp-begin <= Integer.MAX_VALUE;
-                    //ret.set((int)(timeStamp-begin));
                     long curId = rst.getLong("ID");
                     long curTMP = bytesToLong(rst.getBytes("TMSTAMP"));
                     if (curId > largestID) largestID = curId;
                     if (curTMP > largestTMP) largestTMP = curTMP;
+
+
+                    Map<String, String> tempMap = new HashMap<>();
+
                     if (curId > newestId) {
-
-
-                        Map<String, String> tempMap = new HashMap<>();
                         tempMap.put("OPERATION", "INSERT");
-                        tempMap.put("ID", Long.toString(curId));
-                        tempMap.put("TMSTAMP", Long.toString(curTMP));
-                        KafkaSender sd = new KafkaSender();
-                        sd.send(tempMap.toString());
 
-                        System.out.println("new insert id: " + curId);
                     } else {
-                        Map<String, String> tempMap = new HashMap<>();
                         tempMap.put("OPERATION", "UPDATE");
-                        tempMap.put("ID", Long.toString(curId));
-                        tempMap.put("TMSTAMP", Long.toString(curTMP));
-                        KafkaSender sd = new KafkaSender();
-                        sd.send(tempMap.toString());
-                        System.out.println("new update id: " + curId + " time: " + curTMP);
                     }
+
+                    for (int j = 1; j <= numCol; ++j) {
+                        byte[] toProcess = rst.getBytes(j);
+                        ByteBuffer wrapped = ByteBuffer.wrap(toProcess);
+
+                        tempMap.put(columnNames.get(j-1), helpToString(columnTypes.get(j-1), toProcess));
+
+
+
+                    }
+                    KafkaSender sd = new KafkaSender();
+                    sd.send(tempMap.toString());
+                    //System.out.println(tempMap.toString());
+
                 }
 
                 BufferedWriter out = new BufferedWriter(new FileWriter("./a.txt"));
@@ -121,8 +135,42 @@ public class MainScanner extends Thread{
         return result;
     }
 
-
-
+    private static String helpToString(Integer type, byte[] toProcess) {
+        ByteBuffer wrapped = ByteBuffer.wrap(toProcess);
+        switch (type) {
+            case Types.TIMESTAMP:
+                return Long.toString(wrapped.getLong());
+            case Types.BIGINT:
+                return Long.toString(wrapped.getLong());
+            case Types.BINARY:
+                return Long.toString(wrapped.getLong());
+            case Types.BOOLEAN:
+                return Boolean.toString(toProcess[0] != 0);
+            case Types.CHAR:
+                return new String(toProcess);
+            case Types.DOUBLE:
+                return Double.toString(wrapped.getDouble());
+            case Types.FLOAT:
+                return Double.toString(wrapped.getDouble());
+            case Types.VARCHAR:
+                return new String(toProcess);
+            case Types.LONGNVARCHAR:
+                return new String(toProcess);
+            case Types.BIT:
+                return Boolean.toString(toProcess[0] != 0);
+            case Types.TINYINT:
+                return Integer.toString((int) toProcess[0]);
+            case Types.SMALLINT:
+                return Short.toString(wrapped.getShort());
+            case Types.INTEGER:
+                return Integer.toString(wrapped.getInt());
+            case Types.REAL:
+                return Float.toString(wrapped.getFloat());
+            default:
+                return "unhandled type:" + Integer.toString(type);
+            //TODO: unhandled data types and testing
+        }
+    }
 
 
 }
