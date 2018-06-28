@@ -9,7 +9,7 @@ public class TestMssqlConnection {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
             String connectionUrl = "jdbc:sqlserver://localhost:1433;" +
                     "databaseName=testMSSQL;" +
-                    "user=sa;password=reallyStrongPwd123;";
+                    "user=sa;password=Vm450Group7;";
             Connection con = DriverManager.getConnection(connectionUrl);
             String query1 = "IF Object_id('news_detail_backup', 'U')" +
                     " IS NOT NULL\n" +
@@ -50,7 +50,7 @@ public class TestMssqlConnection {
 //                    "\tUNIQUE INDEX \"UNIQUE\" (\"TMSTAMP\")\n" +
                     ")\n" +
                     ";";
-            String query3 = "IF Object_id('news_detail_backup', 'U')" +
+            String query3 = "IF Object_id('mkt_equd_adj', 'U')" +
                     " IS NOT NULL\n" +
                     "    DROP TABLE mkt_equd_adj;";
             String query4 = "CREATE TABLE \"mkt_equd_adj\" (\n" +

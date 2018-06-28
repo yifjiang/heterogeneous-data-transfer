@@ -5,7 +5,7 @@ package com.datayes.heterDataTransfer.insertDeleteThread;
  */
 public class Config {
     static String sqlConnectionUrl = "jdbc:sqlserver://localhost:1433;" +
-            "databaseName=testDB;" +
+            "databaseName=testMSSQL;" +
             "user=sa;password=Vm450Group7;";
 //    static String sqlConnectionUrl = "jdbc:sqlserver://localhost:1433;" +
 //            "databaseName=testMSSQL;" +
