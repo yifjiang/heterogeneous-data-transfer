@@ -1,4 +1,4 @@
-import com.datayes.heterDataTransfer.insertDeleteThread.MainScanner;
+import com.datayes.heterDataTransfer.scanner.InsertUpdateScanner;
 
 /**
  * Created by lyhdk7 on 2018/6/18.
@@ -6,7 +6,7 @@ import com.datayes.heterDataTransfer.insertDeleteThread.MainScanner;
 public class TestIDMainScanner {
     public static void main(String [] args){
         try {
-            MainScanner myScanner = new MainScanner("test1");
+            InsertUpdateScanner myScanner = new InsertUpdateScanner();
 
             myScanner.start();
         } catch(Exception e) {

@@ -1,4 +1,9 @@
-package com.datayes.heterDataTransfer.insertDeleteThread;
+package com.datayes.heterDataTransfer.scanner;
+
+import com.datayes.heterDataTransfer.server.ServerConfig;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.io.*;
 import java.sql.*;
@@ -13,9 +18,9 @@ public class DeleteScanner extends Thread{
     String currentTable;
     final int fetchSize = 2000;
 
-    public DeleteScanner(String tableName) throws ClassNotFoundException, SQLException {
-        con = DriverManager.getConnection(Config.sqlConnectionUrl);
-        currentTable = tableName;
+    public DeleteScanner() throws ClassNotFoundException, SQLException {
+        con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
+        currentTable = ServerConfig.tableName;
     }
 
     Connection getConnection(){
@@ -24,6 +29,7 @@ public class DeleteScanner extends Thread{
 
     public void run() {
         try {
+            Producer<String, String> producer = new KafkaProducer<String, String>(ServerConfig.kafkaProps);
             while (true) {
                 //System.out.println("hello world");
 
@@ -63,8 +69,8 @@ public class DeleteScanner extends Thread{
                             Map<String, String> tempMap = new HashMap<>();
                             tempMap.put("OPERATION", "DELETE");
                             tempMap.put("ID", Long.toString(preId));
-                            KafkaSender sd = new KafkaSender();
-                            sd.send(tempMap.toString());
+                            producer.send(new ProducerRecord<String, String>(ServerConfig.topicName,
+                                    null, tempMap.toString()));
 
                             System.out.println("new delete id: " + preId);
                             prePtr += 1;
@@ -82,8 +88,8 @@ public class DeleteScanner extends Thread{
                                 Map<String, String> tempMap = new HashMap<>();
                                 tempMap.put("OPERATION", "DELETE");
                                 tempMap.put("ID", Long.toString(preIdSet.get(prePtr)));
-                                KafkaSender sd = new KafkaSender();
-                                sd.send(tempMap.toString());
+                                producer.send(new ProducerRecord<String, String>(ServerConfig.topicName,
+                                        null, tempMap.toString()));
 
                                 System.out.println("new delete id: " + preIdSet.get(prePtr));
                                 prePtr += 1;

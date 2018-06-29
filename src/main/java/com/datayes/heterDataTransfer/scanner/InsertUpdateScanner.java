@@ -1,5 +1,10 @@
-package com.datayes.heterDataTransfer.insertDeleteThread;
+package com.datayes.heterDataTransfer.scanner;
 
+
+import com.datayes.heterDataTransfer.server.ServerConfig;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -12,14 +17,14 @@ import java.util.Map;
 /**
  * Created by lyhdk7 on 2018/6/18.
  */
-public class MainScanner extends Thread{
+public class InsertUpdateScanner extends Thread{
 
     Connection con;
     String currentTable;
 
-    public MainScanner(String tableName) throws ClassNotFoundException, SQLException {
-        con = DriverManager.getConnection(Config.sqlConnectionUrl);
-        currentTable = tableName;
+    public InsertUpdateScanner() throws ClassNotFoundException, SQLException {
+        con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
+        currentTable = ServerConfig.tableName;
     }
 
     Connection getConnection(){
@@ -28,6 +33,7 @@ public class MainScanner extends Thread{
 
     public void run() {
         try {
+            Producer<String, String> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
             while (true) {
                 //System.out.println("hello world");
 
@@ -88,8 +94,10 @@ public class MainScanner extends Thread{
 
 
                     }
-                    KafkaSender sd = new KafkaSender();
-                    sd.send(tempMap.toString());
+                    producer.send(new ProducerRecord<String, String>(ServerConfig.topicName,
+                            null, tempMap.toString()));
+
+                    System.out.println("Message sent successfully");
                     //System.out.println(tempMap.toString());
 
                 }
@@ -147,13 +155,13 @@ public class MainScanner extends Thread{
             case Types.BOOLEAN:
                 return Boolean.toString(toProcess[0] != 0);
             case Types.CHAR:
-                return new String(toProcess);
+                return "\'" + new String(toProcess) + "\'";
             case Types.DOUBLE:
                 return Double.toString(wrapped.getDouble());
             case Types.FLOAT:
                 return Double.toString(wrapped.getDouble());
             case Types.VARCHAR:
-                return new String(toProcess);
+                return "\'" + new String(toProcess) + "\'";
             case Types.LONGNVARCHAR:
                 return new String(toProcess);
             case Types.BIT:

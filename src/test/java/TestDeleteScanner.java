@@ -1,9 +1,9 @@
-import com.datayes.heterDataTransfer.insertDeleteThread.DeleteScanner;
+import com.datayes.heterDataTransfer.scanner.DeleteScanner;
 
 public class TestDeleteScanner {
     public static void main(String [] args){
         try {
-            DeleteScanner myScanner = new DeleteScanner("test1");
+            DeleteScanner myScanner = new DeleteScanner();
 
             myScanner.start();
         } catch(Exception e) {
