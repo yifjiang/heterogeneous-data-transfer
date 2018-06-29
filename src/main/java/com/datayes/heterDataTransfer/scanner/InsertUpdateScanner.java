@@ -21,6 +21,7 @@ public class InsertUpdateScanner extends Thread{
 
     Connection con;
     String currentTable;
+    private final Producer<String, String> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
 
     public InsertUpdateScanner() throws ClassNotFoundException, SQLException {
         con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
@@ -33,7 +34,7 @@ public class InsertUpdateScanner extends Thread{
 
     public void run() {
         try {
-            Producer<String, String> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
+
             while (true) {
                 //System.out.println("hello world");
 
@@ -110,14 +111,17 @@ public class InsertUpdateScanner extends Thread{
 
 
 
-                Thread.currentThread().sleep(2000);
+                //Thread.currentThread().sleep(2000);
             }
-        } catch(InterruptedException ex) {
-            System.out.println("Interrupt");
+        /*} catch(InterruptedException ex) {
+            System.out.println("Interrupt");*/
         } catch(IOException e) {
             System.out.println("create file fail!");
         } catch (SQLException e) {
             System.out.println(e.getMessage());
+        }
+        finally {
+            producer.close();
         }
 
     }

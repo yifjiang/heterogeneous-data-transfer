@@ -3,6 +3,7 @@ package com.datayes.heterDataTransfer.client;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.errors.WakeupException;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -14,11 +15,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DatabaseClient implements Runnable {
 
+    private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final KafkaConsumer<String, String> consumer = new KafkaConsumer<>(ClientConfig.kafkaProps);
     private Connection con;
-    private String currentTable;
 
     DatabaseClient() {
         try {
@@ -27,26 +30,23 @@ public class DatabaseClient implements Runnable {
         catch (SQLException e) {
             System.out.println("Database connection failed");
         }
-        currentTable = ClientConfig.tableName;
     }
 
     public void run() {
 
+        try {
 
-        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(ClientConfig.kafkaProps);
+            consumer.subscribe(Arrays.asList(ClientConfig.topicName));
 
-        consumer.subscribe(Arrays.asList(ClientConfig.topicName));
+            System.out.println("Subscribed to topic " + ClientConfig.topicName);
 
-        System.out.println("Subscribed to topic " + ClientConfig.topicName);
+            while (!closed.get()) {
+                ConsumerRecords<String, String> records = consumer.poll(100);
+                for (ConsumerRecord<String, String> record : records) {
 
-        while (true) {
-            ConsumerRecords<String, String> records = consumer.poll(100);
-            for (ConsumerRecord<String, String> record : records) {
+                    System.out.printf("partition = %d, offset = %d, key = %s, value = %s\n",
+                            record.partition(), record.offset(), record.key(), record.value());
 
-                System.out.printf("partition = %d, offset = %d, key = %s, value = %s\n",
-                        record.partition(), record.offset(), record.key(), record.value());
-
-                try {
 
                     Map<String, String> changeContent = decode(record.value());
                     final String query;
@@ -70,7 +70,7 @@ public class DatabaseClient implements Runnable {
                         fieldsStr.setLength(fieldsStr.length() - 1);
                         valuesStr.setLength(valuesStr.length() - 1);
 
-                        query = "INSERT INTO " + currentTable + " (" + fieldsStr.toString() +
+                        query = "INSERT INTO " + ClientConfig.tableName + " (" + fieldsStr.toString() +
                                 ") VALUES (" + valuesStr.toString() + ");";
 
                     }
@@ -89,13 +89,13 @@ public class DatabaseClient implements Runnable {
 
                         updateStr.setLength(updateStr.length() - 1);
 
-                        query = "UPDATE "+ currentTable + " SET " + updateStr.toString() + " WHERE ID = " +
+                        query = "UPDATE "+ ClientConfig.tableName + " SET " + updateStr.toString() + " WHERE ID = " +
                                 changeContent.get("ID") + ";";
 
                     }
                     else if (changeContent.get("OPERATION").equals("DELETE")) {
 
-                        query = "DELETE FROM " + currentTable + " WHERE id = " + changeContent.get("ID") + ";";
+                        query = "DELETE FROM " + ClientConfig.tableName + " WHERE id = " + changeContent.get("ID") + ";";
 
                     }
                     else {
@@ -105,15 +105,17 @@ public class DatabaseClient implements Runnable {
                     System.out.println(query);
                     Statement stmt = con.createStatement();
                     stmt.execute(query);
-
-
                 }
-                catch (Exception e) {
-                    System.out.println(e.getMessage());
-                }
-
             }
-
+        }
+        catch (WakeupException e) {
+            if (!closed.get()) throw e;
+        }
+        catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+        finally {
+            consumer.close();
         }
 
     }
@@ -136,6 +138,11 @@ public class DatabaseClient implements Runnable {
         }
         return ret;
 
+    }
+
+    public void shutdown() {
+        closed.set(true);
+        consumer.wakeup();
     }
 
     public static void main(String[] args) {

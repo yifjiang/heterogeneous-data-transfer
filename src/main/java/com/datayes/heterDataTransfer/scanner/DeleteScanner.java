@@ -16,6 +16,7 @@ public class DeleteScanner extends Thread{
 
     Connection con;
     String currentTable;
+    private final Producer<String, String> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
     final int fetchSize = 2000;
 
     public DeleteScanner() throws ClassNotFoundException, SQLException {
@@ -29,7 +30,6 @@ public class DeleteScanner extends Thread{
 
     public void run() {
         try {
-            Producer<String, String> producer = new KafkaProducer<String, String>(ServerConfig.kafkaProps);
             while (true) {
                 //System.out.println("hello world");
 
@@ -110,14 +110,17 @@ public class DeleteScanner extends Thread{
                 out.write(content.toString());
                 out.close();
 
-                Thread.currentThread().sleep(5000);
+                //Thread.currentThread().sleep(5000);
             }
-        } catch(InterruptedException ex) {
-            System.out.println("Interrupt");
+        /*} catch(InterruptedException ex) {
+            System.out.println("Interrupt");*/
         } catch(IOException e) {
             System.out.println("create file fail!");
         } catch (SQLException e) {
             System.out.println(e.getMessage());
+        }
+        finally {
+            producer.close();
         }
 
     }
