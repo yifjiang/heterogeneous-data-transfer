@@ -60,7 +60,7 @@ public class DatabaseClient implements Runnable {
 
                         for (Map.Entry<String, String> entry : changeContent.entrySet()) {
                             String field = entry.getKey();
-                            if (field.equals("OPERATION") || field.equals("TMSTAMP")) continue;
+                            if (field.equals("OPERATION")) continue;
                             fieldsStr.append(field);
                             fieldsStr.append(",");
                             valuesStr.append(entry.getValue());
@@ -80,7 +80,7 @@ public class DatabaseClient implements Runnable {
 
                         for (Map.Entry<String, String> entry : changeContent.entrySet()) {
                             String field = entry.getKey();
-                            if (field.equals("OPERATION") || field.equals("TMSTAMP") || field.equals("ID")) continue;
+                            if (field.equals("OPERATION") || field.equals("ID")) continue;
                             updateStr.append(field);
                             updateStr.append("=");
                             updateStr.append(entry.getValue());

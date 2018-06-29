@@ -4,9 +4,8 @@ import java.util.Properties;
 
 class ClientConfig {
 
-    static final String sqlConnectionUrl = "jdbc:sqlserver://localhost:1433;" +
-            "databaseName=testMSSQL;" +
-            "user=sa;password=Vm450Group7;";
+    static final String sqlConnectionUrl = "jdbc:mysql://localhost/testMSSQL?" +
+            "user=root&password=Vm450Group7&serverTimezone=UTC";
 
     static final String tableName = "testClient";
 
