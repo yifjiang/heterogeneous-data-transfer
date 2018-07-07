@@ -22,19 +22,57 @@ public class DatabaseClient implements Runnable {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final KafkaConsumer<String, String> consumer = new KafkaConsumer<>(ClientConfig.kafkaProps);
     private Connection con;
+    private Connection monitorConnection;
 
     DatabaseClient() {
         try {
             con = DriverManager.getConnection(ClientConfig.sqlConnectionUrl);
+            monitorConnection = DriverManager.getConnection(ClientConfig.monitorDBURL);
         }
         catch (SQLException e) {
             System.out.println("Database connection failed");
         }
     }
 
+    private int numChangeRows(Map<String, String> changeContent){
+        return 1;//TODO: implement this according to number of rows changed.
+    }
+
+    void record(Map<String, String> changeContent, String tableName) throws SQLException{
+        int numChange = numChangeRows(changeContent);
+        String q = String.format(
+                "INSERT INTO "+tableName+"(changeType, count) VALUES (\'%s\',%s)",
+                changeContent.get("OPERATION"),
+                Integer.toString(numChange)
+        );
+        Statement stmt = monitorConnection.createStatement();
+        stmt.execute(q);
+        stmt.close();
+    }
+
+    void recordReceived(Map<String, String> changeContent) throws SQLException{
+        record(changeContent, "receiveCount");
+    }
+
+    void recordApplied(Map<String, String> changeContent) throws SQLException{
+        record(changeContent, "appliedCount");
+    }
+
     public void run() {
 
         try {
+
+            String[] createIfNotExists = {
+                    "CREATE TABLE IF NOT EXISTS receiveCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
+                    "CREATE TABLE IF NOT EXISTS appliedCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
+            };
+            Statement stmtTmp = monitorConnection.createStatement();
+            for (String q: createIfNotExists) {
+                stmtTmp.execute(q);
+            }
+
+//            SystemMonitor systemMonitor = new SystemMonitor(monitorConnection);
+//            systemMonitor.run();
 
             consumer.subscribe(Arrays.asList(ClientConfig.topicName));
 
@@ -49,6 +87,7 @@ public class DatabaseClient implements Runnable {
 
 
                     Map<String, String> changeContent = decode(record.value());
+                    recordReceived(changeContent);
                     final String query;
 
 
@@ -105,6 +144,7 @@ public class DatabaseClient implements Runnable {
                     System.out.println(query);
                     Statement stmt = con.createStatement();
                     stmt.execute(query);
+                    recordApplied(changeContent);
                 }
             }
         }
@@ -112,6 +152,7 @@ public class DatabaseClient implements Runnable {
             if (!closed.get()) throw e;
         }
         catch (Exception e) {
+            e.printStackTrace();
             System.out.println(e.getMessage());
         }
         finally {
