@@ -23,9 +23,9 @@ public class InsertUpdateScanner extends Thread{
     String currentTable;
     private final Producer<String, String> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
 
-    public InsertUpdateScanner() throws ClassNotFoundException, SQLException {
+    public InsertUpdateScanner(String tableName) throws ClassNotFoundException, SQLException {
         con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
-        currentTable = ServerConfig.tableName;
+        currentTable = tableName;
     }
 
     Connection getConnection(){
@@ -99,7 +99,7 @@ public class InsertUpdateScanner extends Thread{
                             null, tempMap.toString()));
 
                     System.out.println("Message sent successfully");
-                    //System.out.println(tempMap.toString());
+                    System.out.println(tempMap.toString());
 
                 }
 

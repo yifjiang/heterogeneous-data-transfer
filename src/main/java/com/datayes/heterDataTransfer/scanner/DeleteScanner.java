@@ -19,9 +19,9 @@ public class DeleteScanner extends Thread{
     private final Producer<String, String> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
     final int fetchSize = 2000;
 
-    public DeleteScanner() throws ClassNotFoundException, SQLException {
+    public DeleteScanner(String tableName) throws ClassNotFoundException, SQLException {
         con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
-        currentTable = ServerConfig.tableName;
+        currentTable = tableName;
     }
 
     Connection getConnection(){
