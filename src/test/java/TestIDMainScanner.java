@@ -10,7 +10,7 @@ public class TestIDMainScanner {
 
             myScanner.start();
         } catch(Exception e) {
-            System.out.println("Bad");
+            System.out.println("bad");
         }
 
     }
