@@ -23,8 +23,10 @@ public class DatabaseClient implements Runnable {
     private final KafkaConsumer<String, String> consumer = new KafkaConsumer<>(ClientConfig.kafkaProps);
     private Connection con;
     private Connection monitorConnection;
+    private final String currentTable;
 
-    DatabaseClient() {
+    DatabaseClient(String table) {
+        currentTable = table;
         try {
             con = DriverManager.getConnection(ClientConfig.sqlConnectionUrl);
             monitorConnection = DriverManager.getConnection(ClientConfig.monitorDBURL);
@@ -67,91 +69,94 @@ public class DatabaseClient implements Runnable {
                     "CREATE TABLE IF NOT EXISTS appliedCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
             };
             Statement stmtTmp = monitorConnection.createStatement();
-            for (String q: createIfNotExists) {
+            for (String q : createIfNotExists) {
                 stmtTmp.execute(q);
             }
 
 //            SystemMonitor systemMonitor = new SystemMonitor(monitorConnection);
 //            systemMonitor.run();
 
-            consumer.subscribe(Arrays.asList(ClientConfig.topicName));
+            consumer.subscribe(Arrays.asList(currentTable));
 
-            System.out.println("Subscribed to topic " + ClientConfig.topicName);
+            System.out.println("Subscribed to topic " + currentTable);
+
 
             while (!closed.get()) {
-                ConsumerRecords<String, String> records = consumer.poll(100);
-                for (ConsumerRecord<String, String> record : records) {
+                try {
+                    ConsumerRecords<String, String> records = consumer.poll(100);
+                    for (ConsumerRecord<String, String> record : records) {
 
-                    System.out.printf("partition = %d, offset = %d, key = %s, value = %s\n",
-                            record.partition(), record.offset(), record.key(), record.value());
-
-
-                    Map<String, String> changeContent = decode(record.value());
-                    recordReceived(changeContent);
-                    final String query;
+                        System.out.printf("partition = %d, offset = %d, key = %s, value = %s\n",
+                                record.partition(), record.offset(), record.key(), record.value());
 
 
-                    if (changeContent.get("OPERATION").equals("INSERT")) {
+                        Map<String, String> changeContent = decode(record.value());
+                        recordReceived(changeContent);
+                        final String query;
 
 
-                        StringBuilder fieldsStr = new StringBuilder();
-                        StringBuilder valuesStr = new StringBuilder();
+                        if (changeContent.get("OPERATION").equals("INSERT")) {
 
-                        for (Map.Entry<String, String> entry : changeContent.entrySet()) {
-                            String field = entry.getKey();
-                            if (field.equals("OPERATION")) continue;
-                            fieldsStr.append(field);
-                            fieldsStr.append(",");
-                            valuesStr.append(entry.getValue());
-                            valuesStr.append(",");
+
+                            StringBuilder fieldsStr = new StringBuilder();
+                            StringBuilder valuesStr = new StringBuilder();
+
+                            for (Map.Entry<String, String> entry : changeContent.entrySet()) {
+                                String field = entry.getKey();
+                                if (field.equals("OPERATION")) continue;
+                                fieldsStr.append(field);
+                                fieldsStr.append(",");
+                                valuesStr.append(entry.getValue());
+                                valuesStr.append(",");
+                            }
+
+                            fieldsStr.setLength(fieldsStr.length() - 1);
+                            valuesStr.setLength(valuesStr.length() - 1);
+
+                            query = "INSERT INTO " + currentTable + " (" + fieldsStr.toString() +
+                                    ") VALUES (" + valuesStr.toString() + ");";
+
+                        } else if (changeContent.get("OPERATION").equals("UPDATE")) {
+
+                            StringBuilder updateStr = new StringBuilder();
+
+                            for (Map.Entry<String, String> entry : changeContent.entrySet()) {
+                                String field = entry.getKey();
+                                if (field.equals("OPERATION") || field.equals("ID")) continue;
+                                updateStr.append(field);
+                                updateStr.append("=");
+                                updateStr.append(entry.getValue());
+                                updateStr.append(",");
+                            }
+
+                            updateStr.setLength(updateStr.length() - 1);
+
+                            query = "UPDATE " + currentTable + " SET " + updateStr.toString() + " WHERE ID = " +
+                                    changeContent.get("ID") + ";";
+
+                        } else if (changeContent.get("OPERATION").equals("DELETE")) {
+
+                            query = "DELETE FROM " + currentTable + " WHERE id = " + changeContent.get("ID") + ";";
+
+                        } else {
+                            throw new RuntimeException("Unknown operation");
                         }
 
-                        fieldsStr.setLength(fieldsStr.length() - 1);
-                        valuesStr.setLength(valuesStr.length() - 1);
-
-                        query = "INSERT INTO " + ClientConfig.tableName + " (" + fieldsStr.toString() +
-                                ") VALUES (" + valuesStr.toString() + ");";
-
+                        System.out.println(query);
+                        Statement stmt = con.createStatement();
+                        stmt.execute(query);
+                        recordApplied(changeContent);
                     }
-                    else if (changeContent.get("OPERATION").equals("UPDATE")) {
-
-                        StringBuilder updateStr = new StringBuilder();
-
-                        for (Map.Entry<String, String> entry : changeContent.entrySet()) {
-                            String field = entry.getKey();
-                            if (field.equals("OPERATION") || field.equals("ID")) continue;
-                            updateStr.append(field);
-                            updateStr.append("=");
-                            updateStr.append(entry.getValue());
-                            updateStr.append(",");
-                        }
-
-                        updateStr.setLength(updateStr.length() - 1);
-
-                        query = "UPDATE "+ ClientConfig.tableName + " SET " + updateStr.toString() + " WHERE ID = " +
-                                changeContent.get("ID") + ";";
-
-                    }
-                    else if (changeContent.get("OPERATION").equals("DELETE")) {
-
-                        query = "DELETE FROM " + ClientConfig.tableName + " WHERE id = " + changeContent.get("ID") + ";";
-
-                    }
-                    else {
-                        throw new RuntimeException("Unknown operation");
-                    }
-
-                    System.out.println(query);
-                    Statement stmt = con.createStatement();
-                    stmt.execute(query);
-                    recordApplied(changeContent);
+                }
+                catch (SQLException | RuntimeException e) {
+                    e.printStackTrace();
                 }
             }
         }
         catch (WakeupException e) {
             if (!closed.get()) throw e;
         }
-        catch (Exception e) {
+        catch (SQLException e) {
             e.printStackTrace();
             System.out.println(e.getMessage());
         }
@@ -187,6 +192,7 @@ public class DatabaseClient implements Runnable {
     }
 
     public static void main(String[] args) {
-        new DatabaseClient().run();
+        Thread thread = new Thread(new DatabaseClient("testTable")); //TODO: get table names from server
+        thread.start();
     }
 }

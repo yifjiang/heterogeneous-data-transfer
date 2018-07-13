@@ -69,7 +69,7 @@ public class DeleteScanner extends Thread{
                             Map<String, String> tempMap = new HashMap<>();
                             tempMap.put("OPERATION", "DELETE");
                             tempMap.put("ID", Long.toString(preId));
-                            producer.send(new ProducerRecord<String, String>(ServerConfig.topicName,
+                            producer.send(new ProducerRecord<String, String>(currentTable,
                                     null, tempMap.toString()));
 
                             System.out.println("new delete id: " + preId);
@@ -88,7 +88,7 @@ public class DeleteScanner extends Thread{
                                 Map<String, String> tempMap = new HashMap<>();
                                 tempMap.put("OPERATION", "DELETE");
                                 tempMap.put("ID", Long.toString(preIdSet.get(prePtr)));
-                                producer.send(new ProducerRecord<String, String>(ServerConfig.topicName,
+                                producer.send(new ProducerRecord<String, String>(currentTable,
                                         null, tempMap.toString()));
 
                                 System.out.println("new delete id: " + preIdSet.get(prePtr));

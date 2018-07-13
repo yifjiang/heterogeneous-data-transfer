@@ -95,7 +95,7 @@ public class InsertUpdateScanner extends Thread{
 
 
                     }
-                    producer.send(new ProducerRecord<String, String>(ServerConfig.topicName,
+                    producer.send(new ProducerRecord<String, String>(currentTable,
                             null, tempMap.toString()));
 
                     System.out.println("Message sent successfully");

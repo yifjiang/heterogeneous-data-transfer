@@ -30,7 +30,7 @@ public class MainScanner extends Thread {
                 ResultSet rst = tableMetaData.getTables(null, "dbo", "%", null);
                 while(rst.next()) {
                     String currentTableName = rst.getString("TABLE_NAME");
-                    if (tableSet.contains(currentTableName) == false) {
+                    if (!tableSet.contains(currentTableName)) {
                         tableSet.add(currentTableName);
                         InsertUpdateScanner insertUpdateScanner = new InsertUpdateScanner(currentTableName);
                         insertUpdateScanner.start();
