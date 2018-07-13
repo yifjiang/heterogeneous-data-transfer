@@ -3,7 +3,7 @@ import com.datayes.heterDataTransfer.scanner.DeleteScanner;
 public class TestDeleteScanner {
     public static void main(String [] args){
         try {
-            DeleteScanner myScanner = new DeleteScanner();
+            DeleteScanner myScanner = new DeleteScanner("test1");
 
             myScanner.start();
         } catch(Exception e) {

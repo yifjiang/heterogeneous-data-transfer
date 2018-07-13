@@ -6,7 +6,7 @@ import com.datayes.heterDataTransfer.scanner.InsertUpdateScanner;
 public class TestIDMainScanner {
     public static void main(String [] args){
         try {
-            InsertUpdateScanner myScanner = new InsertUpdateScanner();
+            InsertUpdateScanner myScanner = new InsertUpdateScanner("test1");
 
             myScanner.start();
         } catch(Exception e) {
