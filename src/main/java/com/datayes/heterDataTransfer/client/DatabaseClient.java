@@ -26,7 +26,9 @@ public class DatabaseClient implements Runnable {
         currentTable = table;
         try {
             con = DriverManager.getConnection(ClientConfig.sqlConnectionUrl);
-            monitorConnection = DriverManager.getConnection(ClientConfig.monitorDBURL);
+            if (ClientConfig.doMonitor) {
+                monitorConnection = DriverManager.getConnection(ClientConfig.monitorDBURL);
+            }
         }
         catch (SQLException e) {
             System.out.println("Database connection failed");
@@ -55,17 +57,21 @@ public class DatabaseClient implements Runnable {
 
         try {
 
-            String[] createIfNotExists = {
-                    "CREATE TABLE IF NOT EXISTS receiveCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
-                    "CREATE TABLE IF NOT EXISTS appliedCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
-            };
-            Statement stmtTmp = monitorConnection.createStatement();
-            for (String q : createIfNotExists) {
-                stmtTmp.execute(q);
+            if (ClientConfig.doMonitor) {
+                String[] createIfNotExists = {
+                        "CREATE TABLE IF NOT EXISTS receiveCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
+                        "CREATE TABLE IF NOT EXISTS appliedCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
+                };
+                Statement stmtTmp = monitorConnection.createStatement();
+                for (String q : createIfNotExists) {
+                    stmtTmp.execute(q);
+                }
             }
 
+//            if (ClientConfig.doMonitor) {
 //            SystemMonitor systemMonitor = new SystemMonitor(monitorConnection);
 //            systemMonitor.run();
+//            }
 
             consumer.subscribe(Arrays.asList(currentTable));
 
@@ -87,21 +93,23 @@ public class DatabaseClient implements Runnable {
 
                         if (message.getType() == 0) {
 
-                            recordReceived("INSERT", message.getInsertUpdateContentsCount());
+                            if (ClientConfig.doMonitor) {
+                                recordReceived("INSERT", message.getInsertUpdateContentsCount());
+                            }
 
                             StringBuilder fieldsStrBuilder = new StringBuilder();
                             StringBuilder valuesStrBuilder = new StringBuilder();
 
-                            for (String field: message.getFieldsList()) {
+                            for (String field : message.getFieldsList()) {
                                 fieldsStrBuilder.append(field);
                                 fieldsStrBuilder.append(",");
                             }
                             fieldsStrBuilder.setLength(fieldsStrBuilder.length() - 1);
                             String fieldStr = fieldsStrBuilder.toString();
 
-                            for (IncrementMessageProtos.InsertUpdateContent content: message.getInsertUpdateContentsList()) {
+                            for (IncrementMessageProtos.InsertUpdateContent content : message.getInsertUpdateContentsList()) {
                                 valuesStrBuilder.append("(");
-                                for (String value: content.getValuesList()) {
+                                for (String value : content.getValuesList()) {
                                     valuesStrBuilder.append(value);
                                     valuesStrBuilder.append(",");
 
@@ -115,14 +123,19 @@ public class DatabaseClient implements Runnable {
                             System.out.println(query);
                             Statement stmt = con.createStatement();
                             stmt.execute(query);
-                            recordApplied("INSERT", message.getInsertUpdateContentsCount());
+
+                            if (ClientConfig.doMonitor){
+                                recordApplied("INSERT", message.getInsertUpdateContentsCount());
+                            }
 
 
 
 
                         } else if (message.getType() == 1) {
 
-                            recordReceived("UPDATE", message.getInsertUpdateContentsCount());
+                            if (ClientConfig.doMonitor) {
+                                recordReceived("UPDATE", message.getInsertUpdateContentsCount());
+                            }
 
                             List<String> fields = message.getFieldsList();
 
@@ -147,12 +160,17 @@ public class DatabaseClient implements Runnable {
                                 System.out.println(query);
                                 Statement stmt = con.createStatement();
                                 stmt.execute(query);
-                                recordApplied("UPDATE", message.getInsertUpdateContentsCount());
+
+                                if (ClientConfig.doMonitor) {
+                                    recordApplied("UPDATE", message.getInsertUpdateContentsCount());
+                                }
                             }
 
 
                         } else if (message.getType() == 2) {
-                            recordReceived("DELETE", message.getDeleteIdsCount());
+                            if (ClientConfig.doMonitor) {
+                                recordReceived("DELETE", message.getDeleteIdsCount());
+                            }
 
                             StringBuilder idStrBuilder = new StringBuilder();
 
@@ -168,7 +186,10 @@ public class DatabaseClient implements Runnable {
                             System.out.println(query);
                             Statement stmt = con.createStatement();
                             stmt.execute(query);
-                            recordApplied("DELETE", message.getDeleteIdsCount());
+
+                            if (ClientConfig.doMonitor) {
+                                recordApplied("DELETE", message.getDeleteIdsCount());
+                            }
 
                         } else {
                             throw new RuntimeException("Unknown operation");

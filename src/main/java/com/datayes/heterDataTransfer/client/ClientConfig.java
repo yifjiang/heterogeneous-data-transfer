@@ -10,6 +10,8 @@ class ClientConfig {
     static final String monitorDBURL = "jdbc:mysql://localhost/testMonitor?" +
             "user=root&password=Vm450Group7&serverTimezone=UTC";
 
+    static final Boolean doMonitor = true;
+
     //static final String tableName = "testClient";
 
     //static final String topicName = "Changes";
