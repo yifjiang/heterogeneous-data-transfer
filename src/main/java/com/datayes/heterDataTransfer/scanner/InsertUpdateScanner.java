@@ -35,10 +35,12 @@ public class InsertUpdateScanner extends Thread{
     public void run() {
         try {
 
+            String fileName = "./a_"+currentTable+".txt";
+
             while (true) {
                 //System.out.println("hello world");
 
-                File readFile = new File("./a.txt");
+                File readFile = new File(fileName);
                 if (!readFile.exists()) {
                     readFile.createNewFile();
                 }
@@ -145,7 +147,7 @@ public class InsertUpdateScanner extends Thread{
 
                 }
 
-                BufferedWriter out = new BufferedWriter(new FileWriter("./a.txt"));
+                BufferedWriter out = new BufferedWriter(new FileWriter(fileName));
 
                 out.write(largestID + "\n");
                 out.write(largestTMP + "\n");

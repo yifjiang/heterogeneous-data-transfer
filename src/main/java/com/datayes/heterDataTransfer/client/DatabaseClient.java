@@ -200,7 +200,7 @@ public class DatabaseClient implements Runnable {
     }
 
     public static void main(String[] args) {
-        Thread thread = new Thread(new DatabaseClient("testTable")); //TODO: get table names from server
+        Thread thread = new Thread(new DatabaseClient("test")); //TODO: get table names from server
         thread.start();
     }
 }

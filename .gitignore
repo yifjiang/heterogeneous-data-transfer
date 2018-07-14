@@ -3,3 +3,6 @@
 
 #compiled files
 target
+
+#txt files
+*.txt

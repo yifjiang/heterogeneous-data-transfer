@@ -30,10 +30,13 @@ public class DeleteScanner extends Thread{
 
     public void run() {
         try {
+
+            String fileName = "./backup_"+currentTable+".txt";
+
             while (true) {
                 //System.out.println("hello world");
 
-                File readFile = new File("./backup.txt");
+                File readFile = new File(fileName);
                 if (!readFile.exists()) {
                     readFile.createNewFile();
                 }
@@ -122,7 +125,7 @@ public class DeleteScanner extends Thread{
                     System.out.println("Delete: \n" + message.toString());
                 }
 
-                BufferedWriter out = new BufferedWriter(new FileWriter("./backup.txt", false));
+                BufferedWriter out = new BufferedWriter(new FileWriter(fileName, false));
 
                 out.write(content.toString());
                 out.close();
