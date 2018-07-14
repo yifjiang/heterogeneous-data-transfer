@@ -25,7 +25,7 @@ class ClientConfig {
         kafkaProps.put("key.deserializer",
                 "org.apache.kafka.common.serialization.StringDeserializer");
         kafkaProps.put("value.deserializer",
-                "org.apache.kafka.common.serialization.StringDeserializer");
+                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
     }
 
 }

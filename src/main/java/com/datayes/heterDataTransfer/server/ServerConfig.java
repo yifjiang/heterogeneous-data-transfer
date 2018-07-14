@@ -21,6 +21,6 @@ public class ServerConfig {
         kafkaProps.put("auto.commit.interval.ms", "1000");
         kafkaProps.put("session.timeout.ms", "30000");
         kafkaProps.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        kafkaProps.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        kafkaProps.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
     }
 }
