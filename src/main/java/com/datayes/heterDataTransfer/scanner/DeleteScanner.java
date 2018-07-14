@@ -15,6 +15,7 @@ import java.util.Map;
 public class DeleteScanner extends Thread{
 
     Connection con;
+    Connection monitorCon;
     String currentTable;
     private final Producer<String, byte[]> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
     final int fetchSize = 2000;
@@ -22,6 +23,9 @@ public class DeleteScanner extends Thread{
     public DeleteScanner(String tableName) throws ClassNotFoundException, SQLException {
         con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
         currentTable = tableName;
+        if (ServerConfig.doMonitor){
+            monitorCon = DriverManager.getConnection(ServerConfig.monitorDBURL);
+        }
     }
 
     Connection getConnection(){
@@ -30,6 +34,12 @@ public class DeleteScanner extends Thread{
 
     public void run() {
         try {
+
+            MSSQLRecorder mssqlRecorder = new MSSQLRecorder(monitorCon);
+
+            if (ServerConfig.doMonitor) {
+                mssqlRecorder.createTableIfNotExists();//monitor
+            }
 
             String fileName = "./backup_"+currentTable+".txt";
 
@@ -123,6 +133,11 @@ public class DeleteScanner extends Thread{
                     producer.send(new ProducerRecord<String, byte[]>(currentTable,
                             null, message.toByteArray()));
                     System.out.println("Delete: \n" + message.toString());
+
+                    if (ServerConfig.doMonitor){
+                        mssqlRecorder.record("DELETE", deletedIds.size(), ServerConfig.capturedTableName);
+                    }
+
                 }
 
                 BufferedWriter out = new BufferedWriter(new FileWriter(fileName, false));

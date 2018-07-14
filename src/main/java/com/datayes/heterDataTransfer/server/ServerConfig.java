@@ -8,6 +8,14 @@ public class ServerConfig {
             "databaseName=testMSSQL;" +
             "user=sa;password=Vm450Group7;";
 
+    public static final String monitorDBURL = "jdbc:sqlserver://localhost:1433;" +
+            "databaseName=testMonitor;" +
+            "user=sa;password=Vm450Group7;";
+
+    public static final Boolean doMonitor = true;
+
+    public static final String capturedTableName = "capturedCount";
+
     public static final String tableName = "test";
 
     public static final String topicName = "Changes";

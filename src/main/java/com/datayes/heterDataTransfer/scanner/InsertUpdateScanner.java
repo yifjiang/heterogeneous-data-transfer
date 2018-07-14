@@ -20,12 +20,16 @@ import java.util.Map;
 public class InsertUpdateScanner extends Thread{
 
     Connection con;
+    Connection monitorCon;
     String currentTable;
     private final Producer<String, byte[]> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
 
     public InsertUpdateScanner(String tableName) throws ClassNotFoundException, SQLException {
         con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
         currentTable = tableName;
+        if (ServerConfig.doMonitor){
+            monitorCon = DriverManager.getConnection(ServerConfig.monitorDBURL);
+        }
     }
 
     Connection getConnection(){
@@ -34,6 +38,12 @@ public class InsertUpdateScanner extends Thread{
 
     public void run() {
         try {
+
+            MSSQLRecorder mssqlRecorder = new MSSQLRecorder(monitorCon);
+
+            if (ServerConfig.doMonitor) {
+                mssqlRecorder.createTableIfNotExists();//monitor
+            }
 
             String fileName = "./a_"+currentTable+".txt";
 
@@ -131,6 +141,10 @@ public class InsertUpdateScanner extends Thread{
 
                     System.out.println("Insert: \n" + message.toString());
 
+                    if (ServerConfig.doMonitor){
+                        mssqlRecorder.record("INSERT", insertContents.size(), ServerConfig.capturedTableName);
+                    }
+
                 }
 
                 if (!updateContents.isEmpty()) {
@@ -144,6 +158,10 @@ public class InsertUpdateScanner extends Thread{
                             null, message.toByteArray()));
 
                     System.out.println("Update: \n" + message.toString());
+
+                    if (ServerConfig.doMonitor){
+                        mssqlRecorder.record("UPDATE", updateContents.size(), ServerConfig.capturedTableName);
+                    }
 
                 }
 
