@@ -37,6 +37,7 @@ public class MainScanner extends Thread {
 
                         DeleteScanner deleteScanner = new DeleteScanner(currentTableName);
                         deleteScanner.start();
+                        System.out.println("Start to monitor table: " + currentTableName);
                     }
                 }
 

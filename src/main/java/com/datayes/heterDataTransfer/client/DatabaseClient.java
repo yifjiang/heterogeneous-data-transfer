@@ -25,13 +25,14 @@ public class DatabaseClient implements Runnable {
     DatabaseClient(String table) {
         currentTable = table;
         try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
             con = DriverManager.getConnection(ClientConfig.sqlConnectionUrl);
             if (ClientConfig.doMonitor) {
                 monitorConnection = DriverManager.getConnection(ClientConfig.monitorDBURL);
             }
         }
-        catch (SQLException e) {
-            System.out.println("Database connection failed");
+        catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
         }
     }
 
