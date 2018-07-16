@@ -46,7 +46,7 @@ public class MainScanner extends Thread {
 
             }
         } catch(Exception e) {
-            System.out.println(e.getMessage());
+            e.printStackTrace();
         }
 
     }
