@@ -48,20 +48,36 @@ public class InsertUpdateScanner extends Thread{
             String fileName = "./a_"+currentTable+".txt";
 
             while (true) {
-                //System.out.println("hello world");
-
                 File readFile = new File(fileName);
-                if (!readFile.exists()) {
-                    readFile.createNewFile();
-                }
-                List<String> getLines = readFile2(readFile);
                 long newestId = 0;
                 long newestTMP = 0;
+                if (!readFile.exists()) {
+                    readFile.createNewFile();
+                    Statement curstmt = con.createStatement();
+                    ResultSet currst = curstmt.executeQuery(String.format("SELECT MAX(ID) FROM %s;", currentTable));
+                    long largestID = 0;
+                    while(currst.next()) {
+                        largestID = currst.getLong(1);
+                    }
+                    currst = curstmt.executeQuery(String.format("SELECT MAX(TMSTAMP) FROM %s;", currentTable));
+                    long largestTMP = 0;
+                    while(currst.next()) {
+
+                        largestTMP = bytesToLong(currst.getBytes(1));
+                        //System.out.println(largestTMP);
+                    }
+                    newestId = largestID;
+                    newestTMP = largestTMP;
+
+                }
+
+                List<String> getLines = readFile2(readFile);
+
                 if (getLines.size() != 0) {
                     newestId = Long.parseLong(getLines.get(0));
                     newestTMP = Long.parseLong(getLines.get(1));
                 }
-
+                
                 Statement stmt = con.createStatement();
                 ResultSet rst = stmt.executeQuery(String.format("SELECT * FROM %s WHERE TMSTAMP > %d;",
                         currentTable,
