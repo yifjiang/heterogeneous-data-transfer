@@ -1,0 +1,14 @@
+syntax = "proto2";
+option java_package = "com.datayes.heterDataTransfer.scanner";
+option java_outer_classname = "IncrementMessageProtos";
+
+message InsertUpdateContent {
+    repeated string values = 2;
+}
+
+message IncrementMessage {
+    required int32 type = 1; // 0: insert; 1: update; 2: delete
+    repeated string fields = 2;
+    repeated InsertUpdateContent insert_update_contents = 3;
+    repeated int64 delete_ids = 4 [packed=true];
+}

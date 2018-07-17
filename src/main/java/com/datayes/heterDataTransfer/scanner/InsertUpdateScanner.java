@@ -20,12 +20,16 @@ import java.util.Map;
 public class InsertUpdateScanner extends Thread{
 
     Connection con;
+    Connection monitorCon;
     String currentTable;
-    private final Producer<String, String> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
+    private final Producer<String, byte[]> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
 
     public InsertUpdateScanner(String tableName) throws ClassNotFoundException, SQLException {
         con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
         currentTable = tableName;
+        if (ServerConfig.doMonitor){
+            monitorCon = DriverManager.getConnection(ServerConfig.monitorDBURL);
+        }
     }
 
     Connection getConnection(){
@@ -35,10 +39,18 @@ public class InsertUpdateScanner extends Thread{
     public void run() {
         try {
 
+            MSSQLRecorder mssqlRecorder = new MSSQLRecorder(monitorCon);
+
+            if (ServerConfig.doMonitor) {
+                mssqlRecorder.createTableIfNotExists();//monitor
+            }
+
+            String fileName = "./a_"+currentTable+".txt";
+
             while (true) {
                 //System.out.println("hello world");
 
-                File readFile = new File("./a.txt");
+                File readFile = new File(fileName);
                 if (!readFile.exists()) {
                     readFile.createNewFile();
                 }
@@ -69,6 +81,8 @@ public class InsertUpdateScanner extends Thread{
 
                 long largestID = newestId;
                 long largestTMP = newestTMP;
+                List<IncrementMessageProtos.InsertUpdateContent> insertContents = new ArrayList<>();
+                List<IncrementMessageProtos.InsertUpdateContent> updateContents = new ArrayList<>();
 
                 while (rst.next()){
                     long curId = rst.getLong("ID");
@@ -86,24 +100,72 @@ public class InsertUpdateScanner extends Thread{
                         tempMap.put("OPERATION", "UPDATE");
                     }
 
+                    List<String> contents = new ArrayList<>();
+
                     for (int j = 1; j <= numCol; ++j) {
                         byte[] toProcess = rst.getBytes(j);
-                        ByteBuffer wrapped = ByteBuffer.wrap(toProcess);
 
-                        tempMap.put(columnNames.get(j-1), helpToString(columnTypes.get(j-1), toProcess));
+                        final String str = helpToString(columnTypes.get(j-1), toProcess);
+                        tempMap.put(columnNames.get(j-1), str);
 
-
+                        contents.add(str);
 
                     }
-                    producer.send(new ProducerRecord<String, String>(ServerConfig.topicName,
-                            null, tempMap.toString()));
 
-                    System.out.println("Message sent successfully");
-                    System.out.println(tempMap.toString());
+                    IncrementMessageProtos.InsertUpdateContent insertUpdateContent =
+                            IncrementMessageProtos.InsertUpdateContent.newBuilder()
+                            .addAllValues(contents)
+                            .build();
+
+                    if (curId > newestId) {
+                        insertContents.add(insertUpdateContent);
+                    }
+                    else {
+                        updateContents.add(insertUpdateContent);
+                    }
+
+
+                    //System.out.println(tempMap.toString());
 
                 }
 
-                BufferedWriter out = new BufferedWriter(new FileWriter("./a.txt"));
+                if (!insertContents.isEmpty()) {
+                    IncrementMessageProtos.IncrementMessage message =
+                            IncrementMessageProtos.IncrementMessage.newBuilder()
+                            .setType(0)
+                            .addAllFields(columnNames)
+                            .addAllInsertUpdateContents(insertContents)
+                            .build();
+                    producer.send(new ProducerRecord<String, byte[]>(currentTable,
+                            null, message.toByteArray()));
+
+                    System.out.println("Insert: \n" + message.toString());
+
+                    if (ServerConfig.doMonitor){
+                        mssqlRecorder.record("INSERT", insertContents.size(), ServerConfig.capturedTableName);
+                    }
+
+                }
+
+                if (!updateContents.isEmpty()) {
+                    IncrementMessageProtos.IncrementMessage message =
+                            IncrementMessageProtos.IncrementMessage.newBuilder()
+                                    .setType(1)
+                                    .addAllFields(columnNames)
+                                    .addAllInsertUpdateContents(updateContents)
+                                    .build();
+                    producer.send(new ProducerRecord<String, byte[]>(currentTable,
+                            null, message.toByteArray()));
+
+                    System.out.println("Update: \n" + message.toString());
+
+                    if (ServerConfig.doMonitor){
+                        mssqlRecorder.record("UPDATE", updateContents.size(), ServerConfig.capturedTableName);
+                    }
+
+                }
+
+                BufferedWriter out = new BufferedWriter(new FileWriter(fileName));
 
                 out.write(largestID + "\n");
                 out.write(largestTMP + "\n");

@@ -30,13 +30,14 @@ public class MainScanner extends Thread {
                 ResultSet rst = tableMetaData.getTables(null, "dbo", "%", null);
                 while(rst.next()) {
                     String currentTableName = rst.getString("TABLE_NAME");
-                    if (tableSet.contains(currentTableName) == false) {
+                    if (!tableSet.contains(currentTableName)) {
                         tableSet.add(currentTableName);
                         InsertUpdateScanner insertUpdateScanner = new InsertUpdateScanner(currentTableName);
                         insertUpdateScanner.start();
 
                         DeleteScanner deleteScanner = new DeleteScanner(currentTableName);
                         deleteScanner.start();
+                        System.out.println("Start to monitor table: " + currentTableName);
                     }
                 }
 
@@ -45,7 +46,7 @@ public class MainScanner extends Thread {
 
             }
         } catch(Exception e) {
-            System.out.println(e.getMessage());
+            e.printStackTrace();
         }
 
     }

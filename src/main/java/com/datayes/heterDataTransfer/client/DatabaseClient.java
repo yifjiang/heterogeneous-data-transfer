@@ -1,157 +1,212 @@
 package com.datayes.heterDataTransfer.client;
 
+import com.datayes.heterDataTransfer.scanner.IncrementMessageProtos;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.errors.WakeupException;
 
-import java.io.IOException;
-import java.io.StringReader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DatabaseClient implements Runnable {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
-    private final KafkaConsumer<String, String> consumer = new KafkaConsumer<>(ClientConfig.kafkaProps);
+    private final KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(ClientConfig.kafkaProps);
     private Connection con;
     private Connection monitorConnection;
+    private final String currentTable;
 
-    DatabaseClient() {
+    DatabaseClient(String table) {
+        currentTable = table;
         try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
             con = DriverManager.getConnection(ClientConfig.sqlConnectionUrl);
-            monitorConnection = DriverManager.getConnection(ClientConfig.monitorDBURL);
+            if (ClientConfig.doMonitor) {
+                monitorConnection = DriverManager.getConnection(ClientConfig.monitorDBURL);
+            }
         }
-        catch (SQLException e) {
-            System.out.println("Database connection failed");
+        catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
         }
     }
 
-    private int numChangeRows(Map<String, String> changeContent){
-        return 1;//TODO: implement this according to number of rows changed.
-    }
 
-    void record(Map<String, String> changeContent, String tableName) throws SQLException{
-        int numChange = numChangeRows(changeContent);
+    private void record(String op, int numChange, String tableName) throws SQLException{
         String q = String.format(
-                "INSERT INTO "+tableName+"(changeType, count) VALUES (\'%s\',%s)",
-                changeContent.get("OPERATION"),
-                Integer.toString(numChange)
+                "INSERT INTO "+tableName+"(changeType, count) VALUES (\'%s\',%s)", op, numChange
         );
         Statement stmt = monitorConnection.createStatement();
         stmt.execute(q);
         stmt.close();
     }
 
-    void recordReceived(Map<String, String> changeContent) throws SQLException{
-        record(changeContent, "receiveCount");
+    private void recordReceived(String op, int numChange) throws SQLException{
+        record(op, numChange, "receiveCount");
     }
 
-    void recordApplied(Map<String, String> changeContent) throws SQLException{
-        record(changeContent, "appliedCount");
+    private void recordApplied(String op, int numChange) throws SQLException{
+        record(op, numChange, "appliedCount");
     }
 
     public void run() {
 
         try {
 
-            String[] createIfNotExists = {
-                    "CREATE TABLE IF NOT EXISTS receiveCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
-                    "CREATE TABLE IF NOT EXISTS appliedCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
-            };
-            Statement stmtTmp = monitorConnection.createStatement();
-            for (String q: createIfNotExists) {
-                stmtTmp.execute(q);
+            if (ClientConfig.doMonitor) {
+                String[] createIfNotExists = {
+                        "CREATE TABLE IF NOT EXISTS receiveCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
+                        "CREATE TABLE IF NOT EXISTS appliedCount(changeID BIGINT AUTO_INCREMENT PRIMARY KEY, changeType CHAR(10), count INT, dateAndTime DATETIME DEFAULT NOW())",
+                };
+                Statement stmtTmp = monitorConnection.createStatement();
+                for (String q : createIfNotExists) {
+                    stmtTmp.execute(q);
+                }
             }
 
+//            if (ClientConfig.doMonitor) {
 //            SystemMonitor systemMonitor = new SystemMonitor(monitorConnection);
 //            systemMonitor.run();
+//            }
 
-            consumer.subscribe(Arrays.asList(ClientConfig.topicName));
+            consumer.subscribe(Arrays.asList(currentTable));
 
-            System.out.println("Subscribed to topic " + ClientConfig.topicName);
+            System.out.println("Subscribed to topic " + currentTable);
+
 
             while (!closed.get()) {
-                ConsumerRecords<String, String> records = consumer.poll(100);
-                for (ConsumerRecord<String, String> record : records) {
+                try {
+                    ConsumerRecords<String, byte[]> records = consumer.poll(100);
+                    for (ConsumerRecord<String, byte[]> record : records) {
 
-                    System.out.printf("partition = %d, offset = %d, key = %s, value = %s\n",
-                            record.partition(), record.offset(), record.key(), record.value());
+                        System.out.printf("partition = %d, offset = %d, key = %s, value = %s\n",
+                                record.partition(), record.offset(), record.key(), record.value());
+
+                        IncrementMessageProtos.IncrementMessage message =
+                                IncrementMessageProtos.IncrementMessage.parseFrom(record.value());
+
+                        String query;
+
+                        if (message.getType() == 0) {
+
+                            if (ClientConfig.doMonitor) {
+                                recordReceived("INSERT", message.getInsertUpdateContentsCount());
+                            }
+
+                            StringBuilder fieldsStrBuilder = new StringBuilder();
+                            StringBuilder valuesStrBuilder = new StringBuilder();
+
+                            for (String field : message.getFieldsList()) {
+                                fieldsStrBuilder.append(field);
+                                fieldsStrBuilder.append(",");
+                            }
+                            fieldsStrBuilder.setLength(fieldsStrBuilder.length() - 1);
+                            String fieldStr = fieldsStrBuilder.toString();
+
+                            for (IncrementMessageProtos.InsertUpdateContent content : message.getInsertUpdateContentsList()) {
+                                valuesStrBuilder.append("(");
+                                for (String value : content.getValuesList()) {
+                                    valuesStrBuilder.append(value);
+                                    valuesStrBuilder.append(",");
+
+                                }
+                                valuesStrBuilder.setLength(valuesStrBuilder.length() - 1);
+                                valuesStrBuilder.append("),");
+                            }
+                            valuesStrBuilder.setLength(valuesStrBuilder.length() - 1);
+                            query = "INSERT INTO " + currentTable + " (" + fieldStr + ") VALUES " +
+                                    valuesStrBuilder.toString() + ";";
+                            System.out.println(query);
+                            Statement stmt = con.createStatement();
+                            stmt.execute(query);
+
+                            if (ClientConfig.doMonitor){
+                                recordApplied("INSERT", message.getInsertUpdateContentsCount());
+                            }
 
 
-                    Map<String, String> changeContent = decode(record.value());
-                    recordReceived(changeContent);
-                    final String query;
 
 
-                    if (changeContent.get("OPERATION").equals("INSERT")) {
+                        } else if (message.getType() == 1) {
+
+                            if (ClientConfig.doMonitor) {
+                                recordReceived("UPDATE", message.getInsertUpdateContentsCount());
+                            }
+
+                            List<String> fields = message.getFieldsList();
+
+                            for (IncrementMessageProtos.InsertUpdateContent content: message.getInsertUpdateContentsList()) {
+                                StringBuilder updateStrBuilder = new StringBuilder();
+                                List<String> values = content.getValuesList();
+                                String id = "";
+                                for (int i = 0; i < values.size(); i++) {
+                                    if (fields.get(i).equals("ID")) {
+                                        id = values.get(i);
+                                    }
+                                    else {
+                                        updateStrBuilder.append(fields.get(i));
+                                        updateStrBuilder.append("=");
+                                        updateStrBuilder.append(values.get(i));
+                                        updateStrBuilder.append(",");
+                                    }
+                                }
+                                updateStrBuilder.setLength(updateStrBuilder.length() - 1);
+                                query = "UPDATE " + currentTable + " SET " + updateStrBuilder.toString() + " WHERE ID = " +
+                                        id + ";";
+                                System.out.println(query);
+                                Statement stmt = con.createStatement();
+                                stmt.execute(query);
+
+                                if (ClientConfig.doMonitor) {
+                                    recordApplied("UPDATE", message.getInsertUpdateContentsCount());
+                                }
+                            }
 
 
-                        StringBuilder fieldsStr = new StringBuilder();
-                        StringBuilder valuesStr = new StringBuilder();
+                        } else if (message.getType() == 2) {
+                            if (ClientConfig.doMonitor) {
+                                recordReceived("DELETE", message.getDeleteIdsCount());
+                            }
 
-                        for (Map.Entry<String, String> entry : changeContent.entrySet()) {
-                            String field = entry.getKey();
-                            if (field.equals("OPERATION")) continue;
-                            fieldsStr.append(field);
-                            fieldsStr.append(",");
-                            valuesStr.append(entry.getValue());
-                            valuesStr.append(",");
+                            StringBuilder idStrBuilder = new StringBuilder();
+
+                            for (Long id: message.getDeleteIdsList()) {
+                                idStrBuilder.append(Long.toString(id));
+                                idStrBuilder.append(",");
+                            }
+
+                            idStrBuilder.setLength(idStrBuilder.length() - 1);
+
+                            query = "DELETE FROM " + currentTable + " WHERE id IN (" + idStrBuilder.toString() + ");";
+
+                            System.out.println(query);
+                            Statement stmt = con.createStatement();
+                            stmt.execute(query);
+
+                            if (ClientConfig.doMonitor) {
+                                recordApplied("DELETE", message.getDeleteIdsCount());
+                            }
+
+                        } else {
+                            throw new RuntimeException("Unknown operation");
                         }
 
-                        fieldsStr.setLength(fieldsStr.length() - 1);
-                        valuesStr.setLength(valuesStr.length() - 1);
-
-                        query = "INSERT INTO " + ClientConfig.tableName + " (" + fieldsStr.toString() +
-                                ") VALUES (" + valuesStr.toString() + ");";
-
                     }
-                    else if (changeContent.get("OPERATION").equals("UPDATE")) {
-
-                        StringBuilder updateStr = new StringBuilder();
-
-                        for (Map.Entry<String, String> entry : changeContent.entrySet()) {
-                            String field = entry.getKey();
-                            if (field.equals("OPERATION") || field.equals("ID")) continue;
-                            updateStr.append(field);
-                            updateStr.append("=");
-                            updateStr.append(entry.getValue());
-                            updateStr.append(",");
-                        }
-
-                        updateStr.setLength(updateStr.length() - 1);
-
-                        query = "UPDATE "+ ClientConfig.tableName + " SET " + updateStr.toString() + " WHERE ID = " +
-                                changeContent.get("ID") + ";";
-
-                    }
-                    else if (changeContent.get("OPERATION").equals("DELETE")) {
-
-                        query = "DELETE FROM " + ClientConfig.tableName + " WHERE id = " + changeContent.get("ID") + ";";
-
-                    }
-                    else {
-                        throw new RuntimeException("Unknown operation");
-                    }
-
-                    System.out.println(query);
-                    Statement stmt = con.createStatement();
-                    stmt.execute(query);
-                    recordApplied(changeContent);
+                }
+                catch (SQLException | RuntimeException | InvalidProtocolBufferException e) {
+                    e.printStackTrace();
                 }
             }
         }
         catch (WakeupException e) {
             if (!closed.get()) throw e;
         }
-        catch (Exception e) {
+        catch (SQLException e) {
             e.printStackTrace();
             System.out.println(e.getMessage());
         }
@@ -161,32 +216,13 @@ public class DatabaseClient implements Runnable {
 
     }
 
-    private Map<String, String> decode(String message) {
-
-        Map<String, String> ret = new HashMap<>();
-
-        try {
-            Properties prop = new Properties();
-            prop.load(new StringReader(message.substring(1, message.length() - 1).replace(", ", "\n")));
-
-            for (Map.Entry<Object, Object> e : prop.entrySet()) {
-                ret.put((String) e.getKey(), (String) e.getValue());
-            }
-
-        }
-        catch (IOException e) {
-            System.out.println(e.getMessage());
-        }
-        return ret;
-
-    }
-
     public void shutdown() {
         closed.set(true);
         consumer.wakeup();
     }
 
     public static void main(String[] args) {
-        new DatabaseClient().run();
+        Thread thread = new Thread(new DatabaseClient("test")); //TODO: get table names from server
+        thread.start();
     }
 }

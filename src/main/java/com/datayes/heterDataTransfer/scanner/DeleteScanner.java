@@ -15,13 +15,17 @@ import java.util.Map;
 public class DeleteScanner extends Thread{
 
     Connection con;
+    Connection monitorCon;
     String currentTable;
-    private final Producer<String, String> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
+    private final Producer<String, byte[]> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
     final int fetchSize = 2000;
 
     public DeleteScanner(String tableName) throws ClassNotFoundException, SQLException {
         con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
         currentTable = tableName;
+        if (ServerConfig.doMonitor){
+            monitorCon = DriverManager.getConnection(ServerConfig.monitorDBURL);
+        }
     }
 
     Connection getConnection(){
@@ -30,10 +34,19 @@ public class DeleteScanner extends Thread{
 
     public void run() {
         try {
+
+            MSSQLRecorder mssqlRecorder = new MSSQLRecorder(monitorCon);
+
+            if (ServerConfig.doMonitor) {
+                mssqlRecorder.createTableIfNotExists();//monitor
+            }
+
+            String fileName = "./backup_"+currentTable+".txt";
+
             while (true) {
                 //System.out.println("hello world");
 
-                File readFile = new File("./backup.txt");
+                File readFile = new File(fileName);
                 if (!readFile.exists()) {
                     readFile.createNewFile();
                 }
@@ -50,6 +63,7 @@ public class DeleteScanner extends Thread{
                 List<Long> curIdSet = new ArrayList<>();
                 int prePtr = 0;
                 int curPtr = 0;
+                List<Long> deletedIds = new ArrayList<>();
                 while (true){
                     if (prePtr >= preIdSet.size()){
                         preIdSet = readIdListByPartition(readFile, start, fetchSize);
@@ -69,10 +83,12 @@ public class DeleteScanner extends Thread{
                             Map<String, String> tempMap = new HashMap<>();
                             tempMap.put("OPERATION", "DELETE");
                             tempMap.put("ID", Long.toString(preId));
-                            producer.send(new ProducerRecord<String, String>(ServerConfig.topicName,
-                                    null, tempMap.toString()));
+                            /*producer.send(new ProducerRecord<String, String>(currentTable,
+                                    null, tempMap.toString()));*/
 
-                            System.out.println("new delete id: " + preId);
+                            //System.out.println("new delete id: " + preId);
+
+                            deletedIds.add(preId);
                             prePtr += 1;
                         } else if (curId == preId){
                             prePtr += 1;
@@ -88,11 +104,14 @@ public class DeleteScanner extends Thread{
                                 Map<String, String> tempMap = new HashMap<>();
                                 tempMap.put("OPERATION", "DELETE");
                                 tempMap.put("ID", Long.toString(preIdSet.get(prePtr)));
-                                producer.send(new ProducerRecord<String, String>(ServerConfig.topicName,
-                                        null, tempMap.toString()));
+                                /*producer.send(new ProducerRecord<String, String>(currentTable,
+                                        null, tempMap.toString()));*/
 
-                                System.out.println("new delete id: " + preIdSet.get(prePtr));
+                                //System.out.println("new delete id: " + preIdSet.get(prePtr));
+                                deletedIds.add(preIdSet.get(prePtr));
                                 prePtr += 1;
+
+
                             }
                             preIdSet = readIdListByPartition(readFile, start, fetchSize);
                             start += fetchSize;
@@ -105,7 +124,23 @@ public class DeleteScanner extends Thread{
                         break;
                     }
                 }
-                BufferedWriter out = new BufferedWriter(new FileWriter("./backup.txt", false));
+                if (!deletedIds.isEmpty()) {
+
+                    IncrementMessageProtos.IncrementMessage message = IncrementMessageProtos.IncrementMessage.newBuilder()
+                            .setType(2)
+                            .addAllDeleteIds(deletedIds)
+                            .build();
+                    producer.send(new ProducerRecord<String, byte[]>(currentTable,
+                            null, message.toByteArray()));
+                    System.out.println("Delete: \n" + message.toString());
+
+                    if (ServerConfig.doMonitor){
+                        mssqlRecorder.record("DELETE", deletedIds.size(), ServerConfig.capturedTableName);
+                    }
+
+                }
+
+                BufferedWriter out = new BufferedWriter(new FileWriter(fileName, false));
 
                 out.write(content.toString());
                 out.close();
