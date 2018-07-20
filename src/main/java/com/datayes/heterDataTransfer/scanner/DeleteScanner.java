@@ -21,7 +21,7 @@ public class DeleteScanner extends Thread{
     final int fetchSize = 2000;
 
     public DeleteScanner(String tableName) throws ClassNotFoundException, SQLException {
-        con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
+        con = null;
         currentTable = tableName;
         if (ServerConfig.doMonitor){
             monitorCon = DriverManager.getConnection(ServerConfig.monitorDBURL);
@@ -33,7 +33,10 @@ public class DeleteScanner extends Thread{
     }
 
     public void run() {
+        Statement stmt = null;
+        ResultSet rst = null;
         try {
+            con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
 
             MSSQLRecorder mssqlRecorder = new MSSQLRecorder(monitorCon);
 
@@ -43,8 +46,8 @@ public class DeleteScanner extends Thread{
 
             String fileName = "./backup_"+currentTable+".txt";
 
-            Statement stmt = con.createStatement();
-            ResultSet rst = null;
+            stmt = con.createStatement();
+
 
             while (true) {
                 //System.out.println("hello world");
@@ -159,6 +162,8 @@ public class DeleteScanner extends Thread{
             System.out.println(e.getMessage());
         }
         finally {
+            closeQuietly(con, stmt, rst);
+
             producer.close();
         }
 
@@ -195,7 +200,17 @@ public class DeleteScanner extends Thread{
         return content;
     }
 
-
+    private void closeQuietly(AutoCloseable... args) {
+        try {
+            for (AutoCloseable closeable : args) {
+                if (closeable != null) {
+                    closeable.close();
+                }
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
 
 
 }

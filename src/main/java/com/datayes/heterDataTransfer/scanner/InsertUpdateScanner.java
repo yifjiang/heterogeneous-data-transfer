@@ -27,7 +27,7 @@ public class InsertUpdateScanner extends Thread{
     private final Producer<String, byte[]> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
 
     public InsertUpdateScanner(String tableName) throws ClassNotFoundException, SQLException {
-        con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
+        con = null;
         currentTable = tableName;
         if (ServerConfig.doMonitor){
             monitorCon = DriverManager.getConnection(ServerConfig.monitorDBURL);
@@ -39,8 +39,11 @@ public class InsertUpdateScanner extends Thread{
     }
 
     public void run() {
+        Statement stmt = null;
+        ResultSet rst = null;
         try {
-
+            con = DriverManager.getConnection(ServerConfig.sqlConnectionUrl);
+            stmt = con.createStatement();
             MSSQLRecorder mssqlRecorder = new MSSQLRecorder(monitorCon);
 
             if (ServerConfig.doMonitor) {
@@ -49,8 +52,8 @@ public class InsertUpdateScanner extends Thread{
 
             String fileName = "./a_"+currentTable+".txt";
 
-            Statement stmt = con.createStatement();
-            ResultSet rst = null;
+
+
 
             while (true) {
                 File readFile = new File(fileName);
@@ -206,6 +209,7 @@ public class InsertUpdateScanner extends Thread{
             System.out.println(e.getMessage());
         }
         finally {
+            closeQuietly(con, stmt, rst);
             producer.close();
         }
 
@@ -269,5 +273,16 @@ public class InsertUpdateScanner extends Thread{
         }
     }
 
+    private void closeQuietly(AutoCloseable... args) {
+        try {
+            for (AutoCloseable closeable : args) {
+                if (closeable != null) {
+                    closeable.close();
+                }
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
 
 }
