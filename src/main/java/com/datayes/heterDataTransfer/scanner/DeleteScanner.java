@@ -43,6 +43,9 @@ public class DeleteScanner extends Thread{
 
             String fileName = "./backup_"+currentTable+".txt";
 
+            Statement stmt = con.createStatement();
+            ResultSet rst = null;
+
             while (true) {
                 //System.out.println("hello world");
 
@@ -52,9 +55,9 @@ public class DeleteScanner extends Thread{
                 }
 
                 //Execute the query
-                Statement stmt = con.createStatement();
+
                 stmt.setFetchSize(fetchSize);
-                ResultSet rst = stmt.executeQuery("SELECT ID FROM " + currentTable);
+                rst = stmt.executeQuery("SELECT ID FROM " + currentTable);
                 StringBuilder content = new StringBuilder();
 
                 //Read by partition
@@ -144,6 +147,7 @@ public class DeleteScanner extends Thread{
 
                 out.write(content.toString());
                 out.close();
+
 
                 //Thread.currentThread().sleep(5000);
             }

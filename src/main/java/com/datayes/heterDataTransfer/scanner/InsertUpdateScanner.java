@@ -2,6 +2,8 @@ package com.datayes.heterDataTransfer.scanner;
 
 
 import com.datayes.heterDataTransfer.server.ServerConfig;
+
+
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -47,27 +49,31 @@ public class InsertUpdateScanner extends Thread{
 
             String fileName = "./a_"+currentTable+".txt";
 
+            Statement stmt = con.createStatement();
+            ResultSet rst = null;
+
             while (true) {
                 File readFile = new File(fileName);
                 long newestId = 0;
                 long newestTMP = 0;
                 if (!readFile.exists()) {
                     readFile.createNewFile();
-                    Statement curstmt = con.createStatement();
-                    ResultSet currst = curstmt.executeQuery(String.format("SELECT MAX(ID) FROM %s;", currentTable));
+                    //Statement curstmt = con.createStatement();
+                    rst = stmt.executeQuery(String.format("SELECT MAX(ID) FROM %s;", currentTable));
                     long largestID = 0;
-                    while(currst.next()) {
-                        largestID = currst.getLong(1);
+                    while(rst.next()) {
+                        largestID = rst.getLong(1);
                     }
-                    currst = curstmt.executeQuery(String.format("SELECT MAX(TMSTAMP) FROM %s;", currentTable));
+                    rst = stmt.executeQuery(String.format("SELECT MAX(TMSTAMP) FROM %s;", currentTable));
                     long largestTMP = 0;
-                    while(currst.next()) {
+                    while(rst.next()) {
 
-                        largestTMP = bytesToLong(currst.getBytes(1));
+                        largestTMP = bytesToLong(rst.getBytes(1));
                         //System.out.println(largestTMP);
                     }
                     newestId = largestID;
                     newestTMP = largestTMP;
+
 
                 }
 
@@ -77,9 +83,8 @@ public class InsertUpdateScanner extends Thread{
                     newestId = Long.parseLong(getLines.get(0));
                     newestTMP = Long.parseLong(getLines.get(1));
                 }
-                
-                Statement stmt = con.createStatement();
-                ResultSet rst = stmt.executeQuery(String.format("SELECT * FROM %s WHERE TMSTAMP > %d;",
+
+                rst = stmt.executeQuery(String.format("SELECT * FROM %s WHERE TMSTAMP > %d;",
                         currentTable,
                         newestTMP));
 
@@ -186,6 +191,8 @@ public class InsertUpdateScanner extends Thread{
                 out.write(largestID + "\n");
                 out.write(largestTMP + "\n");
                 out.close();
+
+
 
 
 
