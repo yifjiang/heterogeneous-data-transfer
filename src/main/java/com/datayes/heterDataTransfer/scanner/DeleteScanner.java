@@ -4,6 +4,7 @@ import com.datayes.heterDataTransfer.server.ServerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import sun.util.resources.cldr.gv.LocaleNames_gv;
 
 import java.io.*;
 import java.sql.*;
@@ -18,7 +19,7 @@ public class DeleteScanner extends Thread{
     Connection monitorCon;
     String currentTable;
     private final Producer<String, byte[]> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
-    final int fetchSize = 2000;
+    final int fetchSize = 1000;
 
     public DeleteScanner(String tableName) throws ClassNotFoundException, SQLException {
         con = null;
@@ -50,18 +51,21 @@ public class DeleteScanner extends Thread{
 
 
             while (true) {
-                //System.out.println("hello world");
-
+                int maxID = 0;
+                int lowerBound = 0;
+                int upperBound = fetchSize;
                 File readFile = new File(fileName);
+                StringBuilder content = new StringBuilder();
+
                 if (!readFile.exists()) {
                     readFile.createNewFile();
                 }
 
                 //Execute the query
-
-                stmt.setFetchSize(fetchSize);
-                rst = stmt.executeQuery("SELECT ID FROM " + currentTable);
-                StringBuilder content = new StringBuilder();
+                rst = stmt.executeQuery("SELECT MAX(ID) FROM " + currentTable);
+                if(rst.next()){
+                    maxID = rst.getInt(1);
+                }
 
                 //Read by partition
                 int start = 0;
@@ -70,6 +74,7 @@ public class DeleteScanner extends Thread{
                 int prePtr = 0;
                 int curPtr = 0;
                 List<Long> deletedIds = new ArrayList<>();
+
                 while (true){
                     if (prePtr >= preIdSet.size()){
                         preIdSet = readIdListByPartition(readFile, start, fetchSize);
@@ -77,7 +82,11 @@ public class DeleteScanner extends Thread{
                         prePtr = 0;
                     }
                     if (curPtr >= curIdSet.size()){
-                        curIdSet = readDataBaseByPartition(rst, fetchSize);
+                        rst = stmt.executeQuery("SELECT ID FROM " + currentTable + " " +
+                                    "WHERE ID >= " + Integer.toString(lowerBound) + " and ID < " + Integer.toString(upperBound));
+                        upperBound += fetchSize;
+                        lowerBound += fetchSize;
+                        curIdSet = readResultSet(rst);
                         content = fileWriter(content, curIdSet);
                         curPtr = 0;
                     }
@@ -89,12 +98,9 @@ public class DeleteScanner extends Thread{
                             Map<String, String> tempMap = new HashMap<>();
                             tempMap.put("OPERATION", "DELETE");
                             tempMap.put("ID", Long.toString(preId));
-                            /*producer.send(new ProducerRecord<String, String>(currentTable,
-                                    null, tempMap.toString()));*/
-
-                            //System.out.println("new delete id: " + preId);
 
                             deletedIds.add(preId);
+
                             prePtr += 1;
                         } else if (curId == preId){
                             prePtr += 1;
@@ -103,10 +109,9 @@ public class DeleteScanner extends Thread{
                             curPtr += 1;
                         }
                     }
-                    if (curIdSet.size() == 0 || preIdSet.size() == 0){
+                    if ((lowerBound > maxID && curIdSet.size() == 0) || preIdSet.size() == 0){
                         while (preIdSet.size() > 0){
                             while(prePtr < preIdSet.size()){
-
                                 Map<String, String> tempMap = new HashMap<>();
                                 tempMap.put("OPERATION", "DELETE");
                                 tempMap.put("ID", Long.toString(preIdSet.get(prePtr)));
@@ -116,20 +121,23 @@ public class DeleteScanner extends Thread{
                                 //System.out.println("new delete id: " + preIdSet.get(prePtr));
                                 deletedIds.add(preIdSet.get(prePtr));
                                 prePtr += 1;
-
-
                             }
                             preIdSet = readIdListByPartition(readFile, start, fetchSize);
                             start += fetchSize;
                             prePtr = 0;
                         }
-                        while(curIdSet.size() > 0){
-                            curIdSet = readDataBaseByPartition(rst, fetchSize);
+                        while(lowerBound <= maxID){
+                            rst = stmt.executeQuery("SELECT ID FROM " + currentTable + " " +
+                                    "WHERE ID >= " + Integer.toString(lowerBound) + " and ID < " + Integer.toString(upperBound));
+                            upperBound += fetchSize;
+                            lowerBound += fetchSize;
+                            curIdSet = readResultSet(rst);
                             content = fileWriter(content, curIdSet);
                         }
                         break;
                     }
                 }
+
                 if (!deletedIds.isEmpty()) {
 
                     IncrementMessageProtos.IncrementMessage message = IncrementMessageProtos.IncrementMessage.newBuilder()
@@ -151,11 +159,9 @@ public class DeleteScanner extends Thread{
                 out.write(content.toString());
                 out.close();
 
-
-                //Thread.currentThread().sleep(5000);
             }
-        /*} catch(InterruptedException ex) {
-            System.out.println("Interrupt");*/
+//        } catch(InterruptedException ex) {
+//            System.out.println("Interrupt");
         } catch(IOException e) {
             System.out.println("create file fail!");
         } catch (SQLException e) {
@@ -180,15 +186,14 @@ public class DeleteScanner extends Thread{
             result.add(Long.parseLong(line));
         }
         br.close();
+
         return result;
     }
 
-    private static List<Long> readDataBaseByPartition(ResultSet rst, int size) throws SQLException {
+    private static List<Long> readResultSet(ResultSet rst) throws SQLException {
         List<Long> result = new ArrayList<>();
-        for (int i = 0; i < size; i += 1){
-            if(rst.next()){
-                result.add(rst.getLong("ID"));
-            }
+        while(rst.next()){
+            result.add(rst.getLong("ID"));
         }
         return result;
     }
