@@ -2,11 +2,11 @@ package com.datayes.heterDataTransfer.sync;
 
 public class ClientConfig {
     long partitionSize = 5000;
-    String sqlConnectionUrl = "jdbc:mysql://localhost/test?" +
-            "user=root&password=root";
+    String sqlConnectionUrl = "jdbc:mysql://localhost/testMSSQL?" +
+            "user=root&password=Vm450Group7";
     String sqlClass = "com.mysql.cj.jdbc.Driver";
     String hostAddress = "localhost";
-    String[] tableToSynchronize = {"test1", "test2"};
+    String[] tableToSynchronize = {"test"};
     int hostPort = 8001;
     String getSqlConnectionUrl(){
         return sqlConnectionUrl;

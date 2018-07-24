@@ -1,5 +1,9 @@
 package com.datayes.heterDataTransfer.sync;
 
+import com.datayes.heterDataTransfer.util.Helper;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.BitSet;
@@ -37,8 +41,9 @@ public class MySQLConnector {
         return ret;
     }
 
-    String toString(int type, byte[] data){
-        ByteBuffer wrapped = ByteBuffer.wrap(data);
+    String toString(Integer type, byte[] toProcess) {
+        if (toProcess == null) return "";
+        ByteBuffer wrapped = ByteBuffer.wrap(toProcess);
         switch (type) {
             case Types.TIMESTAMP:
                 return Long.toString(wrapped.getLong());
@@ -47,22 +52,25 @@ public class MySQLConnector {
             case Types.BINARY:
                 return Long.toString(wrapped.getLong());
             case Types.BOOLEAN:
-                return Boolean.toString(data[0]!=0);
+                return Boolean.toString(toProcess[0] != 0);
             case Types.CHAR:
-                return new String(data);
+                return new String(toProcess);
+            case Types.DECIMAL:
+                BigInteger bi = new BigInteger(1, toProcess);
+                BigDecimal bd = new BigDecimal(bi);
+                return bd.toString();
             case Types.DOUBLE:
                 return Double.toString(wrapped.getDouble());
             case Types.FLOAT:
-//                return Float.toString(wrapped.getFloat());
                 return Double.toString(wrapped.getDouble());
             case Types.VARCHAR:
-                return new String(data);
+                return new String(toProcess);
             case Types.LONGNVARCHAR:
-                return new String(data);
+                return new String(toProcess);
             case Types.BIT:
-                return Boolean.toString(data[0]!=0);
+                return Boolean.toString(toProcess[0] != 0);
             case Types.TINYINT:
-                return Integer.toString((int)data[0]);
+                return Integer.toString((int) toProcess[0]);
             case Types.SMALLINT:
                 return Short.toString(wrapped.getShort());
             case Types.INTEGER:
@@ -70,44 +78,13 @@ public class MySQLConnector {
             case Types.REAL:
                 return Float.toString(wrapped.getFloat());
             default:
-                return "unhandled type:"+Integer.toString(type);//TODO: unhandled data types and testing
+                return "unhandled type:" + Integer.toString(type);
+            //TODO: unhandled data types and testing
         }
     }
 
     Object toObject(int type, byte[] data){
-        ByteBuffer wrapped = ByteBuffer.wrap(data);
-        switch (type) {
-            case Types.TIMESTAMP:
-                return wrapped.getLong();
-            case Types.BIGINT:
-                return wrapped.getLong();
-            case Types.BINARY:
-                return wrapped.getLong();
-            case Types.BOOLEAN:
-                return data[0] != 0;
-            case Types.CHAR:
-                return new String(data);
-            case Types.DOUBLE:
-                return wrapped.getDouble();
-            case Types.FLOAT:
-                return wrapped.getDouble();
-            case Types.VARCHAR:
-                return new String(data);
-            case Types.LONGNVARCHAR:
-                return new String(data);
-            case Types.BIT:
-                return data[0]!=0;
-            case Types.TINYINT:
-                return (int)data[0];
-            case Types.SMALLINT:
-                return wrapped.getShort();
-            case Types.INTEGER:
-                return wrapped.getInt();
-            case Types.REAL:
-                return wrapped.getFloat();
-            default:
-                return "unhandled type:"+Integer.toString(type);//TODO: unhandled data types and testing
-        }
+        return Helper.toObject(type, data);
     }
 
     void clearHeadTail(String tableName, long min, long max) throws SQLException{
@@ -168,36 +145,57 @@ public class MySQLConnector {
             ResultSet rst = stmt.executeQuery(selectQuery);
             if (rst.next()){
                 for (int col = 0; col < dataSet.numCol; ++col){
-                    pstmtUpdate.setObject(col+1,
-                            toObject(
-                                dataSet.columnTypes.get(col),
-                                dataSet.data.get(row).get(col)
-                            ),
-                            dataSet.columnTypes.get(col)
-                    );
+//                    pstmtUpdate.setObject(col+1,
+//                            toObject(
+//                                dataSet.columnTypes.get(col),
+//                                dataSet.data.get(row).get(col)
+//                            ),
+//                            dataSet.columnTypes.get(col)
+//                    );
+                    pstmtUpdate.setString(
+                            col+1,
+                                toString(
+                                    dataSet.columnTypes.get(col),
+                                    dataSet.data.get(row).get(col)
+                                )
+                            );
                 }
-                pstmtUpdate.setObject(
-                            dataSet.numCol+1,
-                            toObject(
-                                    dataSet.columnTypes.get(idCol),
-                                    dataSet.data.get(row).get(idCol)
-                            ),
-                            dataSet.columnTypes.get(idCol)
-                        );
-                System.out.println("UPDATED "+id);
+//                pstmtUpdate.setObject(
+//                            dataSet.numCol+1,
+//                            toObject(
+//                                    dataSet.columnTypes.get(idCol),
+//                                    dataSet.data.get(row).get(idCol)
+//                            ),
+//                            dataSet.columnTypes.get(idCol)
+//                        );
+                pstmtUpdate.setString(
+                        dataSet.numCol+1,
+                        toString(
+                                dataSet.columnTypes.get(idCol),
+                                dataSet.data.get(row).get(idCol)
+                        )
+                );
+                System.out.println(pstmtUpdate);
                 pstmtUpdate.execute();
             }else{
                 for (int col = 0; col < dataSet.numCol; ++col){
-                    pstmtInsert.setObject(
+//                    pstmtInsert.setObject(
+//                            col + 1,
+//                            toObject(
+//                                    dataSet.columnTypes.get(col),
+//                                    dataSet.data.get(row).get(col)
+//                            ),
+//                            dataSet.columnTypes.get(col)
+//                    );
+                    pstmtInsert.setString(
                             col + 1,
-                            toObject(
+                            toString(
                                     dataSet.columnTypes.get(col),
                                     dataSet.data.get(row).get(col)
-                            ),
-                            dataSet.columnTypes.get(col)
+                            )
                     );
                 }
-                System.out.println("INSERTED " + id);
+                System.out.println(pstmtInsert);
                 pstmtInsert.execute();
             }
         }

@@ -4,14 +4,12 @@ package com.datayes.heterDataTransfer.scanner;
 import com.datayes.heterDataTransfer.server.ServerConfig;
 
 
+import com.datayes.heterDataTransfer.util.Helper;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.io.*;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -237,45 +235,7 @@ public class InsertUpdateScanner extends Thread{
     }
 
     private static String helpToString(Integer type, byte[] toProcess) {
-        if (toProcess == null) return "";
-        ByteBuffer wrapped = ByteBuffer.wrap(toProcess);
-        switch (type) {
-            case Types.TIMESTAMP:
-                return Long.toString(wrapped.getLong());
-            case Types.BIGINT:
-                return Long.toString(wrapped.getLong());
-            case Types.BINARY:
-                return Long.toString(wrapped.getLong());
-            case Types.BOOLEAN:
-                return Boolean.toString(toProcess[0] != 0);
-            case Types.CHAR:
-                return "\'" + new String(toProcess) + "\'";
-            case Types.DECIMAL:
-                BigInteger bi = new BigInteger(1, toProcess);
-                BigDecimal bd = new BigDecimal(bi);
-                return bd.toString();
-            case Types.DOUBLE:
-                return Double.toString(wrapped.getDouble());
-            case Types.FLOAT:
-                return Double.toString(wrapped.getDouble());
-            case Types.VARCHAR:
-                return "\'" + new String(toProcess) + "\'";
-            case Types.LONGNVARCHAR:
-                return new String(toProcess);
-            case Types.BIT:
-                return Boolean.toString(toProcess[0] != 0);
-            case Types.TINYINT:
-                return Integer.toString((int) toProcess[0]);
-            case Types.SMALLINT:
-                return Short.toString(wrapped.getShort());
-            case Types.INTEGER:
-                return Integer.toString(wrapped.getInt());
-            case Types.REAL:
-                return Float.toString(wrapped.getFloat());
-            default:
-                return "unhandled type:" + Integer.toString(type);
-            //TODO: unhandled data types and testing
-        }
+        return Helper.toString(type, toProcess);
     }
 
     private void closeQuietly(AutoCloseable... args) {
