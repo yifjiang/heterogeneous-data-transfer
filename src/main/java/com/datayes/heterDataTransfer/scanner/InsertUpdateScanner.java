@@ -9,6 +9,8 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.io.*;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.ArrayList;
@@ -203,10 +205,8 @@ public class InsertUpdateScanner extends Thread{
             }
         /*} catch(InterruptedException ex) {
             System.out.println("Interrupt");*/
-        } catch(IOException e) {
-            System.out.println("create file fail!");
-        } catch (SQLException e) {
-            System.out.println(e.getMessage());
+        } catch (SQLException | IOException e) {
+            e.printStackTrace();
         }
         finally {
             closeQuietly(con, stmt, rst);
@@ -237,6 +237,7 @@ public class InsertUpdateScanner extends Thread{
     }
 
     private static String helpToString(Integer type, byte[] toProcess) {
+        if (toProcess == null) return "";
         ByteBuffer wrapped = ByteBuffer.wrap(toProcess);
         switch (type) {
             case Types.TIMESTAMP:
@@ -249,6 +250,10 @@ public class InsertUpdateScanner extends Thread{
                 return Boolean.toString(toProcess[0] != 0);
             case Types.CHAR:
                 return "\'" + new String(toProcess) + "\'";
+            case Types.DECIMAL:
+                BigInteger bi = new BigInteger(1, toProcess);
+                BigDecimal bd = new BigDecimal(bi);
+                return bd.toString();
             case Types.DOUBLE:
                 return Double.toString(wrapped.getDouble());
             case Types.FLOAT:
