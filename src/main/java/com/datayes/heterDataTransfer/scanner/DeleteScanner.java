@@ -19,10 +19,12 @@ public class DeleteScanner extends Thread{
     String currentTable;
     private final Producer<String, byte[]> producer = new KafkaProducer<>(ServerConfig.kafkaProps);
     final int fetchSize = 1000;
+    BufferedReader br;
 
     public DeleteScanner(String tableName) throws ClassNotFoundException, SQLException {
         con = null;
         currentTable = tableName;
+        br = null;
         if (ServerConfig.doMonitor){
             monitorCon = DriverManager.getConnection(ServerConfig.monitorDBURL);
         }
@@ -59,6 +61,7 @@ public class DeleteScanner extends Thread{
                 if (!readFile.exists()) {
                     readFile.createNewFile();
                 }
+                br = new BufferedReader(new FileReader(readFile));
 
                 //Execute the query
                 rst = stmt.executeQuery("SELECT MAX(ID) FROM " + currentTable);
@@ -67,7 +70,6 @@ public class DeleteScanner extends Thread{
                 }
 
                 //Read by partition
-                int start = 0;
                 List<Long> preIdSet = new ArrayList<>();
                 List<Long> curIdSet = new ArrayList<>();
                 int prePtr = 0;
@@ -76,8 +78,7 @@ public class DeleteScanner extends Thread{
 
                 while (true){
                     if (prePtr >= preIdSet.size()){
-                        preIdSet = readIdListByPartition(readFile, start, fetchSize);
-                        start += fetchSize;
+                        preIdSet = readIdListByPartition(br, fetchSize);
                         prePtr = 0;
                     }
                     if (curPtr >= curIdSet.size()){
@@ -121,8 +122,7 @@ public class DeleteScanner extends Thread{
                                 deletedIds.add(preIdSet.get(prePtr));
                                 prePtr += 1;
                             }
-                            preIdSet = readIdListByPartition(readFile, start, fetchSize);
-                            start += fetchSize;
+                            preIdSet = readIdListByPartition(br, fetchSize);
                             prePtr = 0;
                         }
                         while(lowerBound <= maxID){
@@ -157,6 +157,7 @@ public class DeleteScanner extends Thread{
 
                 out.write(content.toString());
                 out.close();
+                br.close();
 
             }
 //        } catch(InterruptedException ex) {
@@ -174,18 +175,12 @@ public class DeleteScanner extends Thread{
 
     }
 
-    private static List<Long> readIdListByPartition(File fin, int start, int size) throws IOException {
-        BufferedReader br = new BufferedReader(new FileReader(fin));
+    private static List<Long> readIdListByPartition(BufferedReader br, int size) throws IOException {
         List<Long> result = new ArrayList<>();
-        while (start-- > 0){
-            br.readLine();
-        }
         String line;
         while ((line = br.readLine()) != null && size-- > 0) {
             result.add(Long.parseLong(line));
         }
-        br.close();
-
         return result;
     }
 
