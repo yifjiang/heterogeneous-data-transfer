@@ -111,7 +111,12 @@ public class DatabaseClient implements Runnable {
                             for (IncrementMessageProtos.InsertUpdateContent content : message.getInsertUpdateContentsList()) {
                                 valuesStrBuilder.append("(");
                                 for (String value : content.getValuesList()) {
-                                    valuesStrBuilder.append(value);
+                                    if (value.isEmpty()) {
+                                        valuesStrBuilder.append("NULL");
+                                    }
+                                    else {
+                                        valuesStrBuilder.append(value);
+                                    }
                                     valuesStrBuilder.append(",");
 
                                 }
@@ -148,7 +153,7 @@ public class DatabaseClient implements Runnable {
                                     if (fields.get(i).equals("ID")) {
                                         id = values.get(i);
                                     }
-                                    else {
+                                    else if (!values.get(i).isEmpty()){
                                         updateStrBuilder.append(fields.get(i));
                                         updateStrBuilder.append("=");
                                         updateStrBuilder.append(values.get(i));

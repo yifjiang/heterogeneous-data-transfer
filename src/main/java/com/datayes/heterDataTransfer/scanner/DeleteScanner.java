@@ -4,7 +4,6 @@ import com.datayes.heterDataTransfer.server.ServerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import sun.util.resources.cldr.gv.LocaleNames_gv;
 
 import java.io.*;
 import java.sql.*;
