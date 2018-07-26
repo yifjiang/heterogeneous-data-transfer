@@ -131,6 +131,10 @@ public class InsertUpdateScanner extends Thread{
                             final String str = rst.getDate(j).toString();
                             tempMap.put(columnNames.get(j-1), str);
                             contents.add(str);
+                        } else if (columnTypes.get(j-1) == Types.DECIMAL) {
+                            final String str = rst.getBigDecimal(j).toString();
+                            tempMap.put(columnNames.get(j-1), str);
+                            contents.add(str);
                         }
                         else {
                             byte[] toProcess = rst.getBytes(j);
