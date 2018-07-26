@@ -20,18 +20,16 @@ public class Helper {
                 return Boolean.toString(toProcess[0] != 0);
             case Types.CHAR:
                 return "\'" + new String(toProcess) + "\'";
-            case Types.DECIMAL:
-                BigInteger bi = new BigInteger(1, toProcess);
-                BigDecimal bd = new BigDecimal(bi);
-                return bd.toString();
             case Types.DOUBLE:
                 return Double.toString(wrapped.getDouble());
             case Types.FLOAT:
                 return Double.toString(wrapped.getDouble());
             case Types.VARCHAR:
                 return "\'" + new String(toProcess) + "\'";
+            case Types.LONGVARCHAR:
+                return "\'" + new String(toProcess) + "\'";
             case Types.LONGNVARCHAR:
-                return new String(toProcess);
+                return "\'" + new String(toProcess) + "\'";
             case Types.BIT:
                 return Boolean.toString(toProcess[0] != 0);
             case Types.TINYINT:

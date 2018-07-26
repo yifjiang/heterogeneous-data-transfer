@@ -10,6 +10,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.io.*;
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -128,13 +129,25 @@ public class InsertUpdateScanner extends Thread{
 
                     for (int j = 1; j <= numCol; ++j) {
                         if (columnTypes.get(j-1) == Types.DATE) {
-                            final String str = rst.getDate(j).toString();
-                            tempMap.put(columnNames.get(j-1), str);
-                            contents.add(str);
+                            Date tmp = rst.getDate(j);
+                            if (tmp == null) {
+                                contents.add("");
+                            }
+                            else {
+                                final String str = tmp.toString();
+                                tempMap.put(columnNames.get(j-1), str);
+                                contents.add(str);
+                            }
                         } else if (columnTypes.get(j-1) == Types.DECIMAL) {
-                            final String str = rst.getBigDecimal(j).toString();
-                            tempMap.put(columnNames.get(j-1), str);
-                            contents.add(str);
+                            BigDecimal tmp = rst.getBigDecimal(j);
+                            if (tmp == null) {
+                                contents.add("");
+                            }
+                            else {
+                                final String str = rst.getBigDecimal(j).toString();
+                                tempMap.put(columnNames.get(j - 1), str);
+                                contents.add(str);
+                            }
                         }
                         else {
                             byte[] toProcess = rst.getBytes(j);
