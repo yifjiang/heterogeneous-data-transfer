@@ -10,6 +10,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.io.*;
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -127,12 +128,37 @@ public class InsertUpdateScanner extends Thread{
                     List<String> contents = new ArrayList<>();
 
                     for (int j = 1; j <= numCol; ++j) {
-                        byte[] toProcess = rst.getBytes(j);
+                        if (columnTypes.get(j-1) == Types.DATE) {
+                            Date tmp = rst.getDate(j);
+                            if (tmp == null) {
+                                contents.add("");
+                            }
+                            else {
+                                final String str = tmp.toString();
+                                tempMap.put(columnNames.get(j-1), str);
+                                contents.add(str);
+                            }
+                        } else if (columnTypes.get(j-1) == Types.DECIMAL) {
+                            BigDecimal tmp = rst.getBigDecimal(j);
+                            if (tmp == null) {
+                                contents.add("");
+                            }
+                            else {
+                                final String str = rst.getBigDecimal(j).toString();
+                                tempMap.put(columnNames.get(j - 1), str);
+                                contents.add(str);
+                            }
+                        }
+                        else {
+                            byte[] toProcess = rst.getBytes(j);
 
-                        final String str = helpToString(columnTypes.get(j-1), toProcess);
-                        tempMap.put(columnNames.get(j-1), str);
+                            final String str = helpToString(columnTypes.get(j-1), toProcess);
+                            tempMap.put(columnNames.get(j-1), str);
 
-                        contents.add(str);
+                            contents.add(str);
+                        }
+
+
 
                     }
 
