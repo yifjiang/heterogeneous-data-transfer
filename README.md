@@ -14,9 +14,9 @@
 3. Change the `sqlConnectionUrl` and `monitorDBURL` variable in `com/datayes/heterDataTransfer/sync/ClientConfig.java` and `com/datayes/heterDataTransfer/client/ClientConfig.java` according to the address, port, database name, user, and password of the client's database.
 4. Change the `tableToSynchronize` variable in `com/datayes/heterDataTransfer/sync/ClientConfig.java` to the names of the table to be synchronized.
 2. In a terminal, run: `maven package`
-3. copy `heterogeneous-data-transfer-client.jar` and `heterogeneous-data-transfer-fullClient.jar` to the client side machine.
-4. copy `heterogeneous-data-transfer-server.jar` and `heterogeneous-data-transfer-fullServer` to the server.
-5. First startup Kafka.
+3. Copy `heterogeneous-data-transfer-client.jar` and `heterogeneous-data-transfer-fullClient.jar` to the client side machine.
+4. Copy `heterogeneous-data-transfer-server.jar` and `heterogeneous-data-transfer-fullServer` to the server.
+5. Startup Kafka.
 6. To startup the server-side incremental capturing program:
         
         java -jar heterogeneous-data-transfer-server.jar
