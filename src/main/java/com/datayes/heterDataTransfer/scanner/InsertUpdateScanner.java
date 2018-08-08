@@ -129,14 +129,13 @@ public class InsertUpdateScanner extends Thread{
 
                     for (int j = 1; j <= numCol; ++j) {
                         if (columnTypes.get(j-1) == Types.DATE) {
-                            Date tmp = rst.getDate(j);
+                            String tmp = rst.getString(j);
                             if (tmp == null) {
                                 contents.add("");
                             }
                             else {
-                                final String str = tmp.toString();
-                                tempMap.put(columnNames.get(j-1), str);
-                                contents.add(str);
+                                tempMap.put(columnNames.get(j-1), tmp);
+                                contents.add("\'" + tmp + "\'");
                             }
                         } else if (columnTypes.get(j-1) == Types.DECIMAL) {
                             BigDecimal tmp = rst.getBigDecimal(j);
